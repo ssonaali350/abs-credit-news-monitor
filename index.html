@@ -260,6 +260,9 @@
   .source-tag.high { color: var(--status-good); border: 1px solid var(--status-good); }
   .source-tag.low { color: var(--muted); border: 1px solid var(--border); }
 
+  .read-link { color: var(--series-auto); font-size: 12px; font-weight: 500; text-decoration: none; white-space: nowrap; }
+  .read-link:hover { text-decoration: underline; }
+
   .detail-title { font-weight: 500; }
   .summary { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
   .detail-tags { margin-top: 6px; }
@@ -664,6 +667,13 @@ function issuerCell(r) {
   return `<span style="color:var(--text-secondary); font-style:italic;">${snippet}</span>`;
 }
 
+// Direct link to the original article — kept as its own column, separate
+// from the sector/action badges, and stops propagation so clicking it opens
+// the article without also toggling the row's expand/collapse.
+function readLink(r) {
+  return `<a class="read-link" href="${r.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Read article →</a>`;
+}
+
 function rowHtml(r) {
   const borderColor = urgencyColor(classifyUrgency(r));
   const rowClass = ["row-main", r.relevance_score <= 2 ? "muted" : "", r.relevance_score >= 4 ? "pop" : ""].filter(Boolean).join(" ");
@@ -674,9 +684,10 @@ function rowHtml(r) {
       <td>${issuerCell(r)}</td>
       <td>${r.action_type}</td>
       <td>${relBar(r.relevance_score)}</td>
+      <td>${readLink(r)}</td>
     </tr>
     <tr class="row-detail" style="display:none; border-left:3px solid ${borderColor}">
-      <td colspan="5">
+      <td colspan="6">
         <div class="detail-title">${r.title}</div>
         <div class="summary">${r.summary || ""}</div>
         <div class="detail-tags">${watchlistTags(r.watchlist_sectors)}${portfolioTags(r.portfolio_matches)}${sourceTag(r)}</div>
@@ -689,7 +700,7 @@ function sectionHtml(name, items, collapsed) {
   const inner = !items.length
     ? `<div class="empty">No items in this view.</div>`
     : `<table>
-         <thead><tr><th>Date</th><th>Sector</th><th>Issuer/Deal</th><th>Action</th><th>Relevance</th></tr></thead>
+         <thead><tr><th>Date</th><th>Sector</th><th>Issuer/Deal</th><th>Action</th><th>Relevance</th><th>Source</th></tr></thead>
          <tbody>${items.map(rowHtml).join("")}</tbody>
        </table>`;
   const header = `<div class="section-header">${name} <span class="count">(${items.length})</span></div>`;
