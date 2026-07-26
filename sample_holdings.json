@@ -1,0 +1,58 @@
+[
+  {
+    "deal_ids": [
+      "CARL-2024-1",
+      "CARL-2024-2"
+    ],
+    "name": "CarLend Auto Trust",
+    "sector": "Prime Auto",
+    "keywords": [
+      "carlend"
+    ]
+  },
+  {
+    "deal_ids": [
+      "WEST-2024-1",
+      "WEST-2024-2"
+    ],
+    "name": "Westlake Auto Receivables",
+    "sector": "Subprime Auto",
+    "keywords": [
+      "westlake"
+    ]
+  },
+  {
+    "deal_ids": [
+      "CNH-2024-1",
+      "CNH-2024-2"
+    ],
+    "name": "CNH Equipment Capital",
+    "sector": "Equipment",
+    "keywords": [
+      "cnh"
+    ]
+  },
+  {
+    "deal_ids": [
+      "DCTR-2024-1"
+    ],
+    "name": "DataCenter Infrastructure 2024-1",
+    "sector": "Data Center",
+    "keywords": [
+      "hyperscale",
+      "data center abs",
+      "data center securit"
+    ]
+  },
+  {
+    "deal_ids": [
+      "SOLR-2023-1"
+    ],
+    "name": "SolarLend Receivables",
+    "sector": "Solar",
+    "keywords": [
+      "solarlend",
+      "greenlend"
+    ]
+  }
+]

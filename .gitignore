@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+*.bak
+cron.log
+.DS_Store

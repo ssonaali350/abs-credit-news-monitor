@@ -1,0 +1,98 @@
+[
+  {
+    "deal_id": "CARL-2024-1",
+    "deal_name": "CarLend Auto Trust 2024-1",
+    "sector": "Prime Auto",
+    "rating": "AAA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "GREEN",
+    "xs_status": "GREEN",
+    "cnl_status": "GREEN"
+  },
+  {
+    "deal_id": "CARL-2024-2",
+    "deal_name": "CarLend Auto Trust 2024-2",
+    "sector": "Prime Auto",
+    "rating": "AA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "GREEN",
+    "xs_status": "YELLOW",
+    "cnl_status": "GREEN"
+  },
+  {
+    "deal_id": "WEST-2024-1",
+    "deal_name": "Westlake Auto Receivables 2024-1",
+    "sector": "Subprime Auto",
+    "rating": "AAA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "RED",
+    "xs_status": "YELLOW",
+    "cnl_status": "GREEN"
+  },
+  {
+    "deal_id": "WEST-2024-2",
+    "deal_name": "Westlake Auto Receivables 2024-2",
+    "sector": "Subprime Auto",
+    "rating": "AA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "RED",
+    "xs_status": "RED",
+    "cnl_status": "GREEN"
+  },
+  {
+    "deal_id": "CNH-2024-1",
+    "deal_name": "CNH Equipment Capital 2024-1",
+    "sector": "Equipment",
+    "rating": "AAA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "GREEN",
+    "xs_status": "GREEN",
+    "cnl_status": "GREEN"
+  },
+  {
+    "deal_id": "CNH-2024-2",
+    "deal_name": "CNH Equipment Capital 2024-2",
+    "sector": "Equipment",
+    "rating": "AA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "GREEN",
+    "xs_status": "GREEN",
+    "cnl_status": "GREEN"
+  },
+  {
+    "deal_id": "DCTR-2024-1",
+    "deal_name": "DataCenter Infrastructure 2024-1",
+    "sector": "Data Center",
+    "rating": "AAA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "GREEN",
+    "xs_status": "YELLOW",
+    "cnl_status": "GREEN"
+  },
+  {
+    "deal_id": "SOLR-2023-1",
+    "deal_name": "SolarLend Receivables 2023-1",
+    "sector": "Solar",
+    "rating": "AAA",
+    "report_month": "Jun-25",
+    "overall_flag": "RED",
+    "oc_status": "RED",
+    "dpd_status": "RED",
+    "xs_status": "YELLOW",
+    "cnl_status": "GREEN"
+  }
+]

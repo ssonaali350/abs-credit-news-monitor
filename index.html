@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ABS Credit News Monitor</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    /* Status colors are fixed/never themed — reserved for urgency + flags,
+       never reused for sector (categorical) identity. */
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-critical: #d03b3b;
+
+    --series-auto:    #2a78d6; /* slot 1 blue */
+    --series-clo:     #eb6834; /* slot 2 orange */
+    --series-solar:   #1baf7a; /* slot 3 aqua */
+    --series-rmbs:    #eda100; /* slot 4 yellow */
+    --series-cmbs:    #e87ba4; /* slot 5 magenta */
+    --series-consumer:#008300; /* slot 6 green */
+    --series-corp:    #4a3aa7; /* slot 7 violet */
+    --series-red:     #e34948; /* slot 8 red */
+
+    --seq-150: #b7d3f6;
+    --seq-300: #6da7ec;
+    --seq-450: #2a78d6;
+    --seq-550: #1c5cab;
+    --seq-650: #104281;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --status-good:     #0ca30c;
+      --status-warning:  #fab219;
+      --status-critical: #e66767;
+
+      --series-auto:    #3987e5;
+      --series-clo:     #d95926;
+      --series-solar:   #199e70;
+      --series-rmbs:    #c98500;
+      --series-cmbs:    #d55181;
+      --series-consumer:#008300;
+      --series-corp:    #9085e9;
+      --series-red:     #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-critical: #e66767;
+    --series-auto:    #3987e5;
+    --series-clo:     #d95926;
+    --series-solar:   #199e70;
+    --series-rmbs:    #c98500;
+    --series-cmbs:    #d55181;
+    --series-consumer:#008300;
+    --series-corp:    #9085e9;
+    --series-red:     #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+  }
+  header { padding: 20px 28px 8px; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; }
+
+  /* --- Executive summary: the one visual focal point --- */
+  .exec-summary {
+    margin: 10px 28px 0;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--series-auto);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .exec-icon { font-size: 28px; line-height: 1; }
+  .exec-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+  .exec-meta { font-weight: 400; text-transform: none; letter-spacing: normal; margin-left: 8px; }
+  .exec-text { font-size: 17px; line-height: 1.45; margin-top: 4px; }
+
+  /* --- Market overview row: gauge + trend chart --- */
+  .overview-row { display: flex; gap: 12px; padding: 14px 28px 0; flex-wrap: wrap; align-items: stretch; }
+  .gauge-card, .trend-card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px;
+  }
+  .gauge-card { flex: 0 0 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; }
+  .trend-card { flex: 1; min-width: 380px; }
+  .gauge-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+  .gauge-window { font-weight: 400; text-transform: none; letter-spacing: normal; }
+  .gauge-lights { display: flex; gap: 8px; margin: 4px 0; }
+  .gauge-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--gridline); opacity: 0.35; }
+  .gauge-dot.active { opacity: 1; box-shadow: 0 0 0 3px rgba(0,0,0,0.03); }
+  .gauge-dot.red.active { background: var(--status-critical); }
+  .gauge-dot.yellow.active { background: var(--status-warning); }
+  .gauge-dot.green.active { background: var(--status-good); }
+  .gauge-label { font-size: 15px; font-weight: 600; }
+  .gauge-sub { font-size: 12px; color: var(--text-secondary); }
+
+  .panel-header { font-size: 13px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .chart-label { font-size: 10px; fill: var(--muted); }
+  .chart-total { font-size: 10px; fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .chart-note, .chart-caveat { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+  .chart-caveat { font-style: italic; }
+  .trend-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .legend-item { font-size: 11px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; }
+  .legend-swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+  /* --- Sector activity strip (sparklines) --- */
+  .sector-strip { display: flex; gap: 8px; padding: 12px 28px 0; flex-wrap: wrap; }
+  .sector-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 20px;
+    padding: 4px 10px 4px 4px; font-size: 12px;
+  }
+  .chip-count { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  /* --- Portfolio Watch panel (sample deal flags) --- */
+  .portfolio-panel { margin: 14px 28px 0; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; }
+  .info-icon {
+    cursor: help; font-size: 12px; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 50%; width: 16px; height: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .flag-tiles { display: flex; gap: 8px; flex-wrap: wrap; }
+  .flag-tile {
+    display: flex; align-items: center; gap: 6px;
+    border: 1.5px solid var(--border); border-radius: 6px; padding: 6px 10px;
+    font-size: 12px; font-weight: 500; cursor: help; background: var(--page-plane);
+  }
+  .flag-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+
+  .stats { display: flex; gap: 10px; padding: 14px 28px; flex-wrap: wrap; }
+  .stat-tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    min-width: 100px;
+  }
+  .stat-tile .value { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  .stat-tile .label { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  .tabs { display: flex; gap: 6px; padding: 0 28px 12px; align-items: center; }
+  #recencyWindow {
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 13px; margin-left: 8px;
+  }
+  .tab-btn {
+    background: var(--surface-1);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .tab-btn.active { background: var(--series-auto); color: #fff; border-color: var(--series-auto); font-weight: 500; }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; padding: 4px 28px 12px; flex-wrap: wrap; }
+  .toolbar select, .toolbar input[type="text"] {
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 13px;
+  }
+  .toolbar label { font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .toolbar button {
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  .toolbar button:hover { background: var(--gridline); }
+  #search { flex: 1; min-width: 160px; }
+  #fileFallback { display: none; }
+  #themeToggle { margin-left: auto; }
+
+  .section { margin: 0 28px 24px; }
+  .section-header {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 14px; font-weight: 600; margin-bottom: 8px;
+  }
+  .section-header .count { font-weight: 400; color: var(--text-secondary); font-size: 12px; }
+  details.section > summary { cursor: pointer; }
+  details.section > summary .section-header { display: inline-flex; }
+
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 4px;
+    background: transparent;
+    font-size: 13px;
+  }
+  th { text-align: left; padding: 6px 12px; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td { text-align: left; padding: 11px 12px; vertical-align: top; background: var(--surface-1); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  td:first-child { border-left: none; border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+  td:last-child { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+
+  tr.row-main { cursor: pointer; }
+  tr.row-main:hover td { background: var(--gridline); }
+  tr.row-main.pop td { background: color-mix(in srgb, var(--status-good) 4%, var(--surface-1)); font-weight: 500; }
+  tr.row-main.muted td { opacity: 0.55; }
+  tr.row-main.muted .rel-bar { opacity: 0.7; }
+  tr.row-detail td { padding-top: 4px; padding-bottom: 14px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500; color: #fff; white-space: nowrap; }
+  .badge.other { background: var(--muted); color: var(--text-primary); }
+
+  .rel-bar-wrap { display: flex; align-items: center; gap: 6px; }
+  .rel-bar { width: 48px; height: 6px; border-radius: 3px; background: var(--gridline); overflow: hidden; }
+  .rel-bar > div { height: 100%; }
+  .rel-num { font-variant-numeric: tabular-nums; color: var(--text-secondary); font-size: 12px; }
+
+  .watchlist-tag, .portfolio-tag {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; border-radius: 10px; padding: 1px 6px; margin: 1px 4px 1px 0;
+  }
+  .watchlist-tag { color: var(--status-good); border: 1px solid var(--status-good); }
+  .portfolio-tag { color: var(--text-primary); border: 1px solid var(--text-primary); font-weight: 500; }
+
+  /* Consolidated source name + credibility badge, one pill instead of two. */
+  .source-tag {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; border-radius: 10px; padding: 1px 8px; margin: 1px 4px 1px 0;
+    text-decoration: none; white-space: nowrap;
+  }
+  .source-tag.high { color: var(--status-good); border: 1px solid var(--status-good); }
+  .source-tag.low { color: var(--muted); border: 1px solid var(--border); }
+
+  .detail-title { font-weight: 500; }
+  .summary { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
+  .detail-tags { margin-top: 6px; }
+  .empty { padding: 24px; text-align: center; color: var(--text-secondary); background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ABS Credit News Monitor</h1>
+  <div class="subtitle" id="lastUpdated">Loading…</div>
+</header>
+
+<div id="execSummary"></div>
+
+<div id="overviewRow" class="overview-row"></div>
+
+<div class="stats" id="stats"></div>
+
+<div id="sectorStrip" class="sector-strip"></div>
+
+<div id="portfolioPanel"></div>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tabRecent" data-tab="recent">Recent</button>
+  <button class="tab-btn" id="tabHistorical" data-tab="historical">Historical (all)</button>
+  <select id="recencyWindow">
+    <option value="24">Last 24 hours</option>
+    <option value="48">Last 48 hours</option>
+    <option value="168" selected>Last 7 days</option>
+  </select>
+</div>
+
+<div class="toolbar">
+  <select id="sectorFilter"><option value="">All sectors</option></select>
+  <select id="actionFilter"><option value="">All action types</option></select>
+  <select id="relFilter">
+    <option value="0">Any relevance</option>
+    <option value="3">Relevance ≥ 3</option>
+    <option value="4">Relevance ≥ 4</option>
+    <option value="5">Relevance = 5</option>
+  </select>
+  <label><input type="checkbox" id="watchlistOnly"> Sector watchlist only</label>
+  <label><input type="checkbox" id="portfolioOnly"> Portfolio match only (sample)</label>
+  <input type="text" id="search" placeholder="Search issuer, title, summary…">
+  <button id="refreshBtn">Refresh</button>
+  <input type="file" id="fileFallback" accept=".jsonl">
+  <button id="themeToggle">🌓</button>
+</div>
+
+<div id="sections"></div>
+
+<script>
+// The 8 core structured-products categories get the fixed categorical order;
+// everything else (Consumer ABS, Corporate Credit, Other) stays muted since
+// it's outside the core coverage scope.
+const SECTOR_COLORS = {
+  "Auto ABS": "var(--series-auto)",
+  "CLO": "var(--series-clo)",
+  "Solar/Renewable ABS": "var(--series-solar)",
+  "RMBS": "var(--series-rmbs)",
+  "CMBS": "var(--series-cmbs)",
+  "Credit Card ABS": "var(--series-consumer)",
+  "Student Loan ABS": "var(--series-corp)",
+  "Esoteric/Whole-Business ABS": "var(--series-red)",
+};
+const REL_COLORS = { 1: "var(--seq-150)", 2: "var(--seq-300)", 3: "var(--seq-450)", 4: "var(--seq-550)", 5: "var(--seq-650)" };
+const ACTION_GROUPS_ORDER = ["Rating Actions", "Performance/Servicer Reports", "New Issuance/Market Color", "Other"];
+
+let records = [];
+let summaries = [];
+let surveillanceFlags = [];
+let activeTab = "recent";
+let currentGauge = { tone: "neutral", label: "", up: 0, down: 0 };
+
+function parseJsonl(text) {
+  return text.split("\n").filter(l => l.trim()).map(l => JSON.parse(l));
+}
+
+function classifyActionGroup(actionType) {
+  const t = (actionType || "").toLowerCase();
+  if (/rating|upgrade|downgrade|outlook/.test(t)) return "Rating Actions";
+  if (/performance|servicer/.test(t)) return "Performance/Servicer Reports";
+  if (/issuance|market|spread|trend/.test(t)) return "New Issuance/Market Color";
+  return "Other";
+}
+
+// Row urgency: content-based (not tied to relevance score), drives the left
+// border/tint so downgrades/breaches read as red at a glance, upgrades/
+// affirmations as green, everything else neutral.
+function classifyUrgency(r) {
+  const t = `${r.action_type} ${r.title} ${r.summary || ""}`.toLowerCase();
+  if (/downgrade|breach|default|trigger (breach|broken)/.test(t)) return "red";
+  if (/upgrade|affirm/.test(t)) return "green";
+  return "neutral";
+}
+function urgencyColor(u) {
+  return u === "red" ? "var(--status-critical)" : u === "green" ? "var(--status-good)" : "var(--border)";
+}
+
+function formatDate(raw) {
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (isNaN(d)) return raw.slice(0, 16);
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+}
+
+function itemDate(r) {
+  const d = new Date(r.published || r.ingested_at);
+  return isNaN(d) ? new Date(r.ingested_at) : d;
+}
+
+// Whole weeks ago (0 = within the last 7 days, 1 = 7-14 days ago, etc.)
+function weeksAgo(r) {
+  const d = itemDate(r);
+  if (isNaN(d)) return null;
+  return Math.floor((Date.now() - d.getTime()) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function isRecent(r) {
+  const hours = parseInt(document.getElementById("recencyWindow").value, 10);
+  return (Date.now() - itemDate(r).getTime()) <= hours * 60 * 60 * 1000;
+}
+
+function populateFilters() {
+  const sectors = [...new Set(records.map(r => r.sector))].sort();
+  const actions = [...new Set(records.map(r => r.action_type))].sort();
+  document.getElementById("sectorFilter").innerHTML =
+    '<option value="">All sectors</option>' + sectors.map(s => `<option value="${s}">${s}</option>`).join("");
+  document.getElementById("actionFilter").innerHTML =
+    '<option value="">All action types</option>' + actions.map(a => `<option value="${a}">${a}</option>`).join("");
+}
+
+// --- Executive summary (hero) ----------------------------------------
+function renderExecSummary() {
+  const el = document.getElementById("execSummary");
+  if (!summaries.length) { el.innerHTML = ""; return; }
+  const latest = summaries[summaries.length - 1];
+  const toneColor = currentGauge.tone === "red" ? "var(--status-critical)"
+    : currentGauge.tone === "green" ? "var(--status-good)"
+    : currentGauge.tone === "yellow" ? "var(--status-warning)"
+    : "var(--series-auto)";
+  el.innerHTML = `
+    <div class="exec-summary" style="border-left-color:${toneColor}">
+      <div class="exec-icon">🗞️</div>
+      <div class="exec-body">
+        <div class="exec-title">Today's Read <span class="exec-meta">${latest.date} · ${latest.item_count} item${latest.item_count === 1 ? "" : "s"}</span></div>
+        <div class="exec-text">${latest.summary}</div>
+      </div>
+    </div>`;
+}
+
+// --- Market tone gauge --------------------------------------------------
+function computeGauge() {
+  const recent = records.filter(r => weeksAgo(r) === 0);
+  const ratingActions = recent.filter(r => (r.action_group || classifyActionGroup(r.action_type)) === "Rating Actions");
+  let up = 0, down = 0, severe = false;
+  ratingActions.forEach(r => {
+    const t = `${r.action_type} ${r.title}`.toLowerCase();
+    if (/downgrade/.test(t)) { down++; if (r.relevance_score >= 5) severe = true; }
+    else if (/upgrade/.test(t)) up++;
+  });
+  const total = up + down;
+  if (!total) return { tone: "neutral", label: "No rating actions this week", up, down };
+  const ratio = up / total;
+  let tone;
+  if (severe) tone = ratio <= 0.5 ? "red" : "yellow";
+  else if (ratio >= 0.65) tone = "green";
+  else if (ratio <= 0.35) tone = "red";
+  else tone = "yellow";
+  const labels = { green: "Constructive", yellow: "Mixed", red: "Deteriorating" };
+  return { tone, label: labels[tone], up, down };
+}
+
+function gaugeHtml(g) {
+  const dot = (name) => `<span class="gauge-dot ${name}${g.tone === name ? " active" : ""}"></span>`;
+  return `
+    <div class="gauge-card" title="Based on rating-action upgrades vs. downgrades published in the last 7 days across all sectors. A severe (relevance 5) downgrade caps the tone at yellow or red.">
+      <div class="gauge-title">Market Tone <span class="gauge-window">(7d)</span></div>
+      <div class="gauge-lights">${dot("red")}${dot("yellow")}${dot("green")}</div>
+      <div class="gauge-label">${g.label}</div>
+      <div class="gauge-sub">${g.up} upgrades · ${g.down} downgrades</div>
+    </div>`;
+}
+
+// --- Rolling rating-actions trend chart (hand-rolled SVG, no library) ---
+function buildTrendBuckets(weeks) {
+  const buckets = Array.from({ length: weeks }, () => ({}));
+  records.forEach(r => {
+    const w = weeksAgo(r);
+    if (w === null || w < 0 || w >= weeks) return;
+    if ((r.action_group || classifyActionGroup(r.action_type)) !== "Rating Actions") return;
+    if (!SECTOR_COLORS[r.sector]) return; // keep legend to the 8 core sectors
+    const t = (r.action_type || "").toLowerCase();
+    buckets[w][r.sector] = buckets[w][r.sector] || { up: 0, down: 0 };
+    if (/downgrade/.test(t)) buckets[w][r.sector].down++;
+    else if (/upgrade/.test(t)) buckets[w][r.sector].up++;
+  });
+  return buckets;
+}
+
+function trendChartHtml() {
+  const weeks = 5;
+  const buckets = buildTrendBuckets(weeks);
+  const sectorsPresent = Object.keys(SECTOR_COLORS).filter(sec => buckets.some(b => b[sec]));
+  const totals = buckets.map(b => {
+    let up = 0, down = 0;
+    Object.values(b).forEach(v => { up += v.up; down += v.down; });
+    return { up, down };
+  });
+  const hasData = totals.some(t => t.up + t.down > 0);
+  const maxVal = Math.max(1, ...totals.map(t => t.up), ...totals.map(t => t.down));
+
+  const barW = 56, gap = 22, leftPad = 24, baselineY = 95, maxBarH = 80;
+  const pxPerUnit = maxBarH / maxVal;
+  let bars = "";
+  for (let col = 0; col < weeks; col++) {
+    const w = weeks - 1 - col; // leftmost = oldest, rightmost = this week
+    const bucket = buckets[w];
+    const x = leftPad + col * (barW + gap);
+    let cursorUp = baselineY, cursorDown = baselineY;
+    Object.keys(SECTOR_COLORS).forEach(sec => {
+      const v = bucket[sec];
+      if (!v) return;
+      if (v.up) {
+        const h = v.up * pxPerUnit;
+        bars += `<rect x="${x}" y="${cursorUp - h}" width="${barW}" height="${Math.max(h - 1, 0)}" rx="2" style="fill:${SECTOR_COLORS[sec]}"><title>${sec}: ${v.up} upgrade(s)</title></rect>`;
+        cursorUp -= h;
+      }
+      if (v.down) {
+        const h = v.down * pxPerUnit;
+        bars += `<rect x="${x}" y="${cursorDown + 1}" width="${barW}" height="${Math.max(h - 1, 0)}" rx="2" style="fill:${SECTOR_COLORS[sec]}"><title>${sec}: ${v.down} downgrade(s)</title></rect>`;
+        cursorDown += h;
+      }
+    });
+    const label = w === 0 ? "This wk" : `${w}w ago`;
+    bars += `<text x="${x + barW / 2}" y="${baselineY + maxBarH + 18}" text-anchor="middle" class="chart-label">${label}</text>`;
+    if (totals[w].up) bars += `<text x="${x + barW / 2}" y="${cursorUp - 4}" text-anchor="middle" class="chart-total">${totals[w].up}</text>`;
+    if (totals[w].down) bars += `<text x="${x + barW / 2}" y="${cursorDown + 12}" text-anchor="middle" class="chart-total">${totals[w].down}</text>`;
+  }
+  const chartWidth = leftPad * 2 + weeks * barW + (weeks - 1) * gap;
+
+  const legend = sectorsPresent.length
+    ? `<div class="trend-legend">${sectorsPresent.map(sec => `<span class="legend-item"><span class="legend-swatch" style="background:${SECTOR_COLORS[sec]}"></span>${sec}</span>`).join("")}</div>`
+    : "";
+  const note = hasData ? "" : `<div class="chart-note">No rating actions published in the last ${weeks} weeks yet in this dataset.</div>`;
+
+  return `
+    <div class="trend-card">
+      <div class="panel-header">Rating Actions Trend <span class="gauge-window">(rolling ${weeks} weeks, by publish date)</span></div>
+      <svg viewBox="0 0 ${chartWidth} ${baselineY + maxBarH + 30}" width="100%" height="190" preserveAspectRatio="xMinYMid meet">
+        <line x1="${leftPad - 10}" y1="${baselineY}" x2="${chartWidth - leftPad + 10}" y2="${baselineY}" style="stroke:var(--baseline); stroke-width:1"/>
+        ${bars}
+      </svg>
+      ${legend}
+      ${note}
+      <div class="chart-caveat">Coverage reflects what the pipeline has discovered so far — earlier weeks may fill in as it keeps running daily.</div>
+    </div>`;
+}
+
+// --- Sector activity sparklines ------------------------------------------
+function buildSparkline(sectorRecords, weeks, colorVar) {
+  const counts = Array(weeks).fill(0);
+  sectorRecords.forEach(r => {
+    const w = weeksAgo(r);
+    if (w !== null && w >= 0 && w < weeks) counts[weeks - 1 - w]++;
+  });
+  const max = Math.max(...counts, 1);
+  const w = 56, h = 18;
+  const stepX = weeks > 1 ? w / (weeks - 1) : w;
+  const pts = counts.map((c, i) => `${(i * stepX).toFixed(1)},${(h - (c / max) * h).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><polyline points="${pts}" style="fill:none;stroke:${colorVar};stroke-width:2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function sectorStripHtml() {
+  const weeks = 4;
+  return Object.entries(SECTOR_COLORS).map(([sec, color]) => {
+    const secRecords = records.filter(r => r.sector === sec);
+    const spark = buildSparkline(secRecords, weeks, color);
+    const count = secRecords.filter(r => { const w = weeksAgo(r); return w !== null && w >= 0 && w < weeks; }).length;
+    return `<div class="sector-chip" title="${sec}: ${count} item(s) in the last ${weeks} weeks">${sectorBadge(sec)}${spark}<span class="chip-count">${count}</span></div>`;
+  }).join("");
+}
+
+// --- Portfolio Watch: sample deal surveillance-flag tiles ----------------
+function flagColor(flag) {
+  return flag === "RED" ? "var(--status-critical)" : flag === "YELLOW" ? "var(--status-warning)" : "var(--status-good)";
+}
+function flagTileHtml(f) {
+  const color = flagColor(f.overall_flag);
+  const tip = `${f.deal_name} · ${f.rating} · ${f.sector} · ${f.report_month} — OC:${f.oc_status} DPD:${f.dpd_status} XS:${f.xs_status} CNL:${f.cnl_status}`;
+  return `<div class="flag-tile" style="border-color:${color}" title="${tip}"><span class="flag-dot" style="background:${color}"></span>${f.deal_id}</div>`;
+}
+function portfolioPanelHtml() {
+  if (!surveillanceFlags.length) return "";
+  const tiles = surveillanceFlags.map(flagTileHtml).join("");
+  return `
+    <div class="portfolio-panel">
+      <div class="panel-header">Portfolio Watch — Sample Deal Flags
+        <span class="info-icon" title="Sample/demo data only. These tiles come directly from the Surveillance Flags tab in ABS_Monitor.xlsx (model-driven, report month Jun-25) for the same 8 illustrative deals used throughout this dashboard — not real fund positions or ratings. News items below tagged &quot;SAMPLE: &lt;deal&gt;&quot; reference this same demo list.">ⓘ</span>
+      </div>
+      <div class="flag-tiles">${tiles}</div>
+    </div>`;
+}
+
+function renderOverview() {
+  currentGauge = computeGauge();
+  document.getElementById("overviewRow").innerHTML = gaugeHtml(currentGauge) + trendChartHtml();
+  document.getElementById("sectorStrip").innerHTML = sectorStripHtml();
+  document.getElementById("portfolioPanel").innerHTML = portfolioPanelHtml();
+}
+
+function renderStats(scoped) {
+  const total = scoped.length;
+  const watchlisted = scoped.filter(r => r.watchlist_sectors && r.watchlist_sectors.length).length;
+  const portfolioMatched = scoped.filter(r => r.portfolio_matches && r.portfolio_matches.length).length;
+  const highRel = scoped.filter(r => r.relevance_score >= 4).length;
+  const sectors = new Set(scoped.map(r => r.sector)).size;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-tile"><div class="value">${total}</div><div class="label">Items in view</div></div>
+    <div class="stat-tile"><div class="value">${watchlisted}</div><div class="label">Sector watchlist</div></div>
+    <div class="stat-tile"><div class="value">${portfolioMatched}</div><div class="label">Portfolio matches (sample)</div></div>
+    <div class="stat-tile"><div class="value">${highRel}</div><div class="label">High relevance (≥4)</div></div>
+    <div class="stat-tile"><div class="value">${sectors}</div><div class="label">Sectors covered</div></div>
+  `;
+}
+
+function sectorBadge(sector) {
+  const color = SECTOR_COLORS[sector];
+  if (!color) return `<span class="badge other">${sector}</span>`;
+  return `<span class="badge" style="background:${color}">${sector}</span>`;
+}
+
+function relBar(score) {
+  const color = REL_COLORS[score] || REL_COLORS[1];
+  return `<div class="rel-bar-wrap"><div class="rel-bar"><div style="width:${score*20}%; background:${color}"></div></div><span class="rel-num">${score}/5</span></div>`;
+}
+
+function watchlistTags(tags) {
+  if (!tags || !tags.length) return "";
+  return tags.map(t => `<span class="watchlist-tag">✓ ${t}</span>`).join("");
+}
+
+function portfolioTags(matches) {
+  if (!matches || !matches.length) return "";
+  return matches.map(m => `<span class="portfolio-tag" title="Sample/demo holdings match — not a real fund position">SAMPLE: ${m}</span>`).join("");
+}
+
+function classifySourceSignalFallback(r) {
+  const text = `${r.title} ${r.source_feed}`.toLowerCase();
+  if (r.source_feed && r.source_feed.toLowerCase().includes("sec edgar")) return "high";
+  return /s&p|kbra|moody|fitch|dbrs|morningstar/.test(text) ? "high" : "low";
+}
+
+// Consolidated source-name + credibility indicator — one pill, not two.
+function shortenSource(feed) {
+  return (feed || "")
+    .replace(/^Google News - /, "")
+    .replace(/^SEC EDGAR - /, "SEC: ")
+    .replace(/ \(Rating Agencies\)$/, "")
+    .trim();
+}
+function sourceTag(r) {
+  const sig = r.source_signal || classifySourceSignalFallback(r);
+  const label = shortenSource(r.source_feed);
+  const cls = sig === "high" ? "source-tag high" : "source-tag low";
+  const icon = sig === "high" ? "★ " : "";
+  return `<a class="${cls}" href="${r.link}" target="_blank" rel="noopener" title="${r.source_feed}">${icon}${label}</a>`;
+}
+
+function applyFilters(list) {
+  const sector = document.getElementById("sectorFilter").value;
+  const action = document.getElementById("actionFilter").value;
+  const minRel = parseInt(document.getElementById("relFilter").value, 10);
+  const watchlistOnly = document.getElementById("watchlistOnly").checked;
+  const portfolioOnly = document.getElementById("portfolioOnly").checked;
+  const q = document.getElementById("search").value.trim().toLowerCase();
+
+  return list.filter(r => {
+    if (sector && r.sector !== sector) return false;
+    if (action && r.action_type !== action) return false;
+    if (minRel === 5 ? r.relevance_score !== 5 : r.relevance_score < minRel) return false;
+    if (watchlistOnly && (!r.watchlist_sectors || !r.watchlist_sectors.length)) return false;
+    if (portfolioOnly && (!r.portfolio_matches || !r.portfolio_matches.length)) return false;
+    if (q) {
+      const hay = `${r.issuer||""} ${r.title} ${r.summary||""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b) => itemDate(b) - itemDate(a));
+}
+
+// Collapsed row (Date | Sector | Issuer/Deal | Action | Relevance) + a
+// hidden detail row (title, summary, tags, source) toggled on click —
+// keeps the default view scannable, full detail one click away.
+function rowHtml(r) {
+  const borderColor = urgencyColor(classifyUrgency(r));
+  const rowClass = ["row-main", r.relevance_score <= 2 ? "muted" : "", r.relevance_score >= 4 ? "pop" : ""].filter(Boolean).join(" ");
+  return `
+    <tr class="${rowClass}" style="border-left:3px solid ${borderColor}" onclick="const d=this.nextElementSibling; d.style.display = d.style.display==='table-row' ? 'none' : 'table-row';">
+      <td>${formatDate(r.published || r.ingested_at)}</td>
+      <td>${sectorBadge(r.sector)}</td>
+      <td>${r.issuer || "—"}</td>
+      <td>${r.action_type}</td>
+      <td>${relBar(r.relevance_score)}</td>
+    </tr>
+    <tr class="row-detail" style="display:none; border-left:3px solid ${borderColor}">
+      <td colspan="5">
+        <div class="detail-title">${r.title}</div>
+        <div class="summary">${r.summary || ""}</div>
+        <div class="detail-tags">${watchlistTags(r.watchlist_sectors)}${portfolioTags(r.portfolio_matches)}${sourceTag(r)}</div>
+      </td>
+    </tr>
+  `;
+}
+
+function sectionHtml(name, items, collapsed) {
+  const inner = !items.length
+    ? `<div class="empty">No items in this view.</div>`
+    : `<table>
+         <thead><tr><th>Date</th><th>Sector</th><th>Issuer/Deal</th><th>Action</th><th>Relevance</th></tr></thead>
+         <tbody>${items.map(rowHtml).join("")}</tbody>
+       </table>`;
+  const header = `<div class="section-header">${name} <span class="count">(${items.length})</span></div>`;
+  if (collapsed) {
+    return `<details class="section"><summary>${header}</summary>${inner}</details>`;
+  }
+  return `<div class="section">${header}${inner}</div>`;
+}
+
+function render() {
+  const base = activeTab === "recent" ? records.filter(isRecent) : records;
+  const filtered = applyFilters(base);
+
+  renderStats(filtered);
+
+  const grouped = { "Rating Actions": [], "Performance/Servicer Reports": [], "New Issuance/Market Color": [], "Other": [] };
+  filtered.forEach(r => {
+    const g = r.action_group || classifyActionGroup(r.action_type);
+    (grouped[g] || grouped["Other"]).push(r);
+  });
+
+  document.getElementById("sections").innerHTML = ACTION_GROUPS_ORDER
+    .map(name => sectionHtml(name, grouped[name], name === "Other"))
+    .join("");
+}
+
+function setLastUpdated() {
+  if (!records.length) { document.getElementById("lastUpdated").textContent = "No data loaded."; return; }
+  const latest = records.reduce((a,b) => (a.ingested_at||"") > (b.ingested_at||"") ? a : b);
+  document.getElementById("lastUpdated").textContent =
+    `${records.length} items total · last ingested ${new Date(latest.ingested_at).toLocaleString()}`;
+}
+
+function load(newsText, summariesText, flagsText) {
+  records = parseJsonl(newsText);
+  summaries = summariesText ? parseJsonl(summariesText) : [];
+  surveillanceFlags = flagsText ? JSON.parse(flagsText) : [];
+  populateFilters();
+  renderOverview();
+  renderExecSummary();
+  setLastUpdated();
+  render();
+}
+
+async function fetchData() {
+  try {
+    const [newsRes, summaryRes, flagsRes] = await Promise.all([
+      fetch("structured_news.jsonl?_=" + Date.now()),
+      fetch("daily_summaries.jsonl?_=" + Date.now()).catch(() => null),
+      fetch("sample_surveillance_flags.json?_=" + Date.now()).catch(() => null),
+    ]);
+    if (!newsRes.ok) throw new Error("fetch failed");
+    const newsText = await newsRes.text();
+    const summaryText = (summaryRes && summaryRes.ok) ? await summaryRes.text() : "";
+    const flagsText = (flagsRes && flagsRes.ok) ? await flagsRes.text() : "";
+    load(newsText, summaryText, flagsText);
+    document.getElementById("fileFallback").style.display = "none";
+  } catch (e) {
+    document.getElementById("fileFallback").style.display = "inline-block";
+    document.getElementById("lastUpdated").textContent = "Could not fetch structured_news.jsonl directly — choose the file manually.";
+  }
+}
+
+document.getElementById("sectorFilter").addEventListener("change", render);
+document.getElementById("actionFilter").addEventListener("change", render);
+document.getElementById("relFilter").addEventListener("change", render);
+document.getElementById("watchlistOnly").addEventListener("change", render);
+document.getElementById("recencyWindow").addEventListener("change", render);
+document.getElementById("portfolioOnly").addEventListener("change", render);
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("refreshBtn").addEventListener("click", fetchData);
+document.getElementById("fileFallback").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => load(reader.result, "", "");
+  reader.readAsText(file);
+});
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const root = document.documentElement;
+  root.setAttribute("data-theme", root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+});
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeTab = btn.dataset.tab;
+    render();
+  });
+});
+
+fetchData();
+</script>
+</body>
+</html>
