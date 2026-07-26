@@ -40,4 +40,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add structured_news.jsonl seen.json daily_summaries.jsonl sample_holdings.json market_ticker.json
           git diff --cached --quiet || git commit -m "Automated news ingest $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+          # Self-heal if main moved since checkout (e.g. a manual push landed
+          # at the same moment) - rebase and retry once instead of failing
+          # the whole run and silently discarding this run's ingested data.
+          for i in 1 2 3; do
+            if git push; then break; fi
+            echo "push rejected, pulling --rebase and retrying ($i/3)"
+            git pull --rebase origin main
+          done
