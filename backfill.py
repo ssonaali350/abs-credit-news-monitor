@@ -20,7 +20,7 @@ HOLDINGS_FILE = BASE_DIR / "sample_holdings.json"
 def main():
     records = [json.loads(l) for l in OUTPUT_FILE.read_text().splitlines() if l.strip()]
     for r in records:
-        r["action_type"] = normalize_action_type(r.get("action_type", ""), r.get("title", ""))
+        r["action_type"] = normalize_action_type(r.get("action_type", ""), r.get("title", ""), r.get("issuer"))
         r["action_group"] = classify_action_group(r.get("action_type", ""))
         r["source_signal"] = classify_source_signal(r.get("title", ""), r.get("source_feed", ""))
         r["portfolio_matches"] = match_holdings(

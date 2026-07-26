@@ -63,13 +63,17 @@ return ONLY a JSON object (no prose, no markdown fences) with these fields:
 - "action_type": exactly one of {actions}. Classify by the UNDERLYING EVENT, \
 not the specific verb the headline happens to use — different outlets \
 describe the same kind of event differently, and near-duplicate coverage of \
-one event must still land in the same bucket. In particular: "sets rates", \
-"announces rates", "prices", "closes", and "completes" a deal all describe \
-pricing/closing a securitization and must all map to "New Issuance"; \
-"assigns", "affirms", "raises", or "cuts" a rating map to the matching \
-Rating Upgrade/Downgrade/Outlook Change type; "reports on", "publishes \
-performance for", and "servicer update on" a deal all map to \
-"Performance/Servicer Report".
+one event must still land in the same bucket. Rule of thumb: if the article \
+names a specific issuer, a specific dollar amount, AND a concrete \
+transactional milestone (pricing, rate-setting, closing, settlement), it is \
+"New Issuance" regardless of whether it says "sets", "announces", "prices", \
+"closes", or "completes" — those are the same event type worded \
+differently. Reserve "Other" for genuinely generic commentary that isn't \
+tied to one specific, named transaction (sector overviews, trend pieces, \
+market-wide observations). Separately: "assigns", "affirms", "raises", or \
+"cuts" a rating map to the matching Rating Upgrade/Downgrade/Outlook Change \
+type; "reports on", "publishes performance for", and "servicer update on" a \
+deal all map to "Performance/Servicer Report".
 - "relevance_score": integer 1-5, how relevant this is to an ABS surveillance/\
 asset management audience (5 = directly affects a specific deal or asset class \
 they'd hold, 1 = generic/unrelated)
@@ -273,7 +277,7 @@ def main():
                 "ingested_at": datetime.now(timezone.utc).isoformat(),
                 **structured,
             }
-            record["action_type"] = normalize_action_type(record.get("action_type", ""), title)
+            record["action_type"] = normalize_action_type(record.get("action_type", ""), title, record.get("issuer"))
             record["action_group"] = classify_action_group(record.get("action_type", ""))
             record["source_signal"] = classify_source_signal(title, name)
             record["portfolio_matches"] = match_holdings(
