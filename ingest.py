@@ -186,30 +186,68 @@ Items (relevance/sector/action/portfolio-matches/title):
 """
 
 
+# The domain-scoped rating-agency feeds + expanded categories (RMBS, CMBS,
+# credit card, student loan, esoteric) went live at this point - before it,
+# only 6 narrower feeds existed. A baseline computed from data straddling
+# this line compares today's volume under the new, much broader feed set
+# against a rate collected under the old one - exactly the apples-to-oranges
+# comparison that made ordinary post-expansion volume look artificially
+# "busier than usual." Update this if the feed mix changes again materially.
+FEED_EXPANSION_CUTOFF = datetime(2026, 7, 25, 17, 30, tzinfo=timezone.utc)
+MIN_BASELINE_DAYS = 5  # need this many distinct post-cutoff days before trusting a ratio
+BACKFILL_LAG_DAYS = 3  # published-to-ingested gap beyond this reads as "just discovered", not "just happened"
+BACKFILL_FRACTION_THRESHOLD = 0.5  # if more than half of today's batch is laggy, say so
+
+
 def compute_volume_baseline(days: int = VOLUME_BASELINE_DAYS):
-    """Average items/day over the trailing `days`, based on published dates
-    across the whole dataset (excluding today itself). Divides by the full
-    window length (not just days that had any items), so quiet days pull the
-    baseline down rather than being ignored — otherwise a handful of busy
-    days would make every day look "quiet by comparison"."""
+    """Average items ingested per day over the trailing `days`, counted by
+    ingested_at (not published date) so it's measuring the same thing as
+    "today's count" does: pipeline throughput, not publish-date clustering
+    (which the near-duplicate feeds' backfill discovery would otherwise
+    contaminate for arbitrary past dates, not just today). Only counts days
+    on/after FEED_EXPANSION_CUTOFF, and reports insufficient=True until
+    there's enough post-cutoff history to trust a ratio."""
     if not OUTPUT_FILE.exists():
-        return None
+        return {"avg": None, "window_days": 0, "insufficient": True}
     now = datetime.now(timezone.utc)
+    days_since_cutoff = max(1, (now - FEED_EXPANSION_CUTOFF).days)
+    window = min(days, days_since_cutoff)
+
     daily_counts = {}
     for line in OUTPUT_FILE.read_text().splitlines():
         if not line.strip():
             continue
         r = json.loads(line)
-        dt = parse_published(r.get("published")) or parse_published(r.get("ingested_at"))
-        if not dt:
+        ingested = parse_published(r.get("ingested_at"))
+        if not ingested or ingested < FEED_EXPANSION_CUTOFF:
             continue
-        age_days = (now - dt).days
-        if 0 < age_days <= days:  # exclude "today" (age 0) from its own baseline
-            key = dt.date()
+        age_days = (now - ingested).days
+        if 0 < age_days <= window:  # exclude "today" (age 0) from its own baseline
+            key = ingested.date()
             daily_counts[key] = daily_counts.get(key, 0) + 1
-    if not daily_counts:
-        return None
-    return sum(daily_counts.values()) / days
+
+    if days_since_cutoff < MIN_BASELINE_DAYS:
+        return {"avg": None, "window_days": window, "insufficient": True}
+    avg = sum(daily_counts.values()) / window
+    return {"avg": avg, "window_days": window, "insufficient": False}
+
+
+def detect_backfill_artifact(records: list) -> bool:
+    """True if today's batch looks like a backlog catch-up (old published
+    dates just now being discovered) rather than genuinely fresh same-day
+    news - e.g. right after a feed expansion starts surfacing years of a
+    rating agency's back catalog all at once."""
+    if not records:
+        return False
+    laggy = 0
+    for r in records:
+        pub = parse_published(r.get("published"))
+        ing = parse_published(r.get("ingested_at"))
+        if not pub or not ing:
+            continue
+        if (ing - pub).days >= BACKFILL_LAG_DAYS:
+            laggy += 1
+    return (laggy / len(records)) >= BACKFILL_FRACTION_THRESHOLD
 
 
 def build_action_line(records: list):
@@ -236,24 +274,61 @@ def build_action_line(records: list):
     return "🔴 Action Needed: " + "; ".join(parts) + ".", True
 
 
-def build_volume_line(today_count: int, baseline):
-    if baseline is None or baseline == 0:
-        return f"{today_count} item{'s' if today_count != 1 else ''} today — no {VOLUME_BASELINE_DAYS}-day baseline yet."
-    ratio = today_count / baseline
+def build_action_items(records: list):
+    """The specific downgrade/portfolio-match items behind the Action Needed
+    line — a count alone ("3 downgrades") isn't actionable; a PM needs the
+    issuer names and a link to click through to each one. Downgrades sort
+    first, matching the priority ordering used elsewhere."""
+    items = []
+    seen_ids = set()
+    for r in records:
+        is_downgrade = "downgrade" in (r.get("action_type") or "").lower()
+        portfolio_matches = r.get("portfolio_matches") or []
+        if not is_downgrade and not portfolio_matches:
+            continue
+        if r["id"] in seen_ids:
+            continue
+        seen_ids.add(r["id"])
+        items.append({
+            "id": r["id"],
+            "label": r.get("issuer") or r["title"],
+            "link": r.get("link"),
+            "is_downgrade": is_downgrade,
+            "portfolio_matches": portfolio_matches,
+        })
+    items.sort(key=lambda x: 0 if x["is_downgrade"] else 1)
+    return items
+
+
+def build_volume_line(today_count: int, baseline_info: dict, is_backfill_like: bool):
+    plural = "s" if today_count != 1 else ""
+    backfill_note = (
+        " — today's volume looks inflated by backlog discovery from the recent feed expansion, not organic activity"
+        if is_backfill_like else ""
+    )
+    if baseline_info["insufficient"] or baseline_info["avg"] is None:
+        return (f"{today_count} item{plural} today — {VOLUME_BASELINE_DAYS}-day baseline still building since the "
+                f"July 25 feed expansion (comparison not yet meaningful){backfill_note}.")
+    avg = baseline_info["avg"]
+    if avg == 0:
+        return f"{today_count} item{plural} today — no comparable baseline yet{backfill_note}."
+    ratio = today_count / avg
     if ratio >= 1.5:
         tone = "busier than usual"
     elif ratio <= 0.5:
         tone = "quieter than usual"
     else:
         tone = "a typical day"
-    return (f"{today_count} item{'s' if today_count != 1 else ''} today vs. {baseline:.1f}/day "
-            f"{VOLUME_BASELINE_DAYS}-day average — {tone}.")
+    return (f"{today_count} item{plural} today vs. {avg:.1f}/day recent average "
+            f"({baseline_info['window_days']}-day window since the feed expansion) — {tone}{backfill_note}.")
 
 
 def generate_daily_summary(client: Anthropic, records: list) -> dict:
     action_line, action_needed = build_action_line(records)
-    baseline = compute_volume_baseline()
-    volume_line = build_volume_line(len(records), baseline)
+    action_items = build_action_items(records)
+    baseline_info = compute_volume_baseline()
+    is_backfill_like = detect_backfill_artifact(records)
+    volume_line = build_volume_line(len(records), baseline_info, is_backfill_like)
 
     # Downgrades and portfolio-sample matches always lead, even if they're a
     # small fraction of today's volume — the narrative prompt is told this
@@ -278,6 +353,7 @@ def generate_daily_summary(client: Anthropic, records: list) -> dict:
     return {
         "action_needed": action_needed,
         "action_line": action_line,
+        "action_items": action_items,
         "volume_line": volume_line,
         "narrative": narrative,
     }

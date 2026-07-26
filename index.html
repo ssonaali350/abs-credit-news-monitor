@@ -111,6 +111,18 @@
   .exec-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
   .exec-meta { font-weight: 400; text-transform: none; letter-spacing: normal; margin-left: 8px; }
   .exec-action-line { font-size: 16px; font-weight: 700; line-height: 1.4; margin-top: 6px; }
+  .exec-action-items { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .action-item-link {
+    display: inline-block; font-size: 12px; font-weight: 500; text-decoration: none;
+    color: var(--status-critical); border: 1px solid var(--status-critical);
+    border-radius: 10px; padding: 2px 9px; max-width: 320px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .action-item-link:hover { text-decoration: underline; }
+  .action-item-sample {
+    font-size: 10px; font-weight: 700; color: var(--status-warning);
+    border: 1px solid var(--status-warning); border-radius: 4px; padding: 1px 5px;
+  }
   .exec-volume-line { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
   .exec-text { font-size: 14px; line-height: 1.45; margin-top: 8px; color: var(--text-secondary); }
 
@@ -575,10 +587,25 @@ function renderExecSummary() {
       <div class="exec-body">
         <div class="exec-title">Today's Read <span class="exec-meta">${latest.date}</span></div>
         <div class="exec-action-line" style="color:${toneColor}">${latest.action_line}</div>
+        ${actionItemsHtml(latest.action_items)}
         <div class="exec-volume-line">${latest.volume_line}</div>
         <div class="exec-text">${latest.narrative}</div>
       </div>
     </div>`;
+}
+
+// Specific issuer/deal names behind the Action Needed line, each linking to
+// its source article — a count alone ("3 downgrades") isn't actionable.
+function actionItemsHtml(items) {
+  if (!items || !items.length) return "";
+  const chips = items.map(item => {
+    const icon = item.is_downgrade ? "▼ " : "";
+    const sampleTag = item.portfolio_matches && item.portfolio_matches.length
+      ? ` <span class="action-item-sample" title="Sample/demo holdings match — not a real fund position">SAMPLE</span>`
+      : "";
+    return `<a class="action-item-link" href="${item.link}" target="_blank" rel="noopener">${icon}${item.label}</a>${sampleTag}`;
+  }).join("");
+  return `<div class="exec-action-items">${chips}</div>`;
 }
 
 // --- Market tone gauge --------------------------------------------------
