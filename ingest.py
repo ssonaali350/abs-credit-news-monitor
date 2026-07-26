@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 from feeds import (
     FEEDS, SEC_USER_AGENT, KEYWORD_FILTERED_FEEDS, matches_abs_keywords, is_junk_title,
     classify_action_group, classify_source_signal, match_holdings, SAMPLE_HOLDINGS,
-    is_near_duplicate, is_dedup_scoped, DEDUP_WINDOW_DAYS,
+    is_near_duplicate, is_dedup_scoped, DEDUP_WINDOW_DAYS, normalize_action_type,
 )
 
 BASE_DIR = Path(__file__).parent
@@ -273,6 +273,7 @@ def main():
                 "ingested_at": datetime.now(timezone.utc).isoformat(),
                 **structured,
             }
+            record["action_type"] = normalize_action_type(record.get("action_type", ""), title)
             record["action_group"] = classify_action_group(record.get("action_type", ""))
             record["source_signal"] = classify_source_signal(title, name)
             record["portfolio_matches"] = match_holdings(

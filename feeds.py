@@ -136,6 +136,29 @@ def classify_action_group(action_type: str) -> str:
     return "Other"
 
 
+# Deterministic safety net on top of the LLM's action_type judgment: even
+# with a tightened prompt, the same underlying event (e.g. "sets" vs
+# "announces" interest rates for a securitization) can still land in
+# different buckets across separate API calls, since LLM classification
+# isn't perfectly deterministic. These patterns catch the pricing/closing
+# event type by keyword and force it to "New Issuance" — but only when the
+# LLM landed on a vague/ambiguous bucket, never overriding a clear Rating or
+# Performance classification it already made confidently.
+_NEW_ISSUANCE_OVERRIDE_PATTERNS = [
+    re.compile(r"\b(sets?|announces?)\b[^.]*\binterest rates?\b", re.IGNORECASE),
+    re.compile(r"\b(prices?|closes?|completes?)\b[^.]*\b(securitiz\w*|securitis\w*|asset-backed|\babs\b)", re.IGNORECASE),
+]
+_AMBIGUOUS_ACTION_TYPES = {"Filing/Disclosure", "Other", "Regulatory"}
+
+
+def normalize_action_type(action_type: str, title: str) -> str:
+    if action_type not in _AMBIGUOUS_ACTION_TYPES:
+        return action_type
+    if any(p.search(title) for p in _NEW_ISSUANCE_OVERRIDE_PATTERNS):
+        return "New Issuance"
+    return action_type
+
+
 # --- Source credibility ------------------------------------------------
 # Rating agencies / regulators are primary sources; everything else
 # (aggregators, blogs, trade press) is lower-signal secondary commentary.
