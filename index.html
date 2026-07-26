@@ -301,6 +301,8 @@
   .ticker-change.flat { color: var(--muted); }
   .ticker-asof { color: var(--muted); font-size: 11px; padding: 0 16px; }
   .ticker-unavailable { color: var(--muted); font-size: 11px; padding: 0 16px; cursor: help; }
+  .ticker-error { color: var(--status-warning); font-size: 12px; padding: 2px 16px; cursor: help; }
+  .chart-note-error { color: var(--status-warning); font-size: 13px; padding: 20px 0; cursor: help; }
 
   /* --- Ask AI panel --- */
   .ask-ai-panel { margin: 10px 28px 0; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; }
@@ -697,7 +699,13 @@ function sectorStripHtml() {
 
 // --- Live credit-market ticker bar (real data — no disclaimer) -----------
 function tickerBarHtml() {
-  if (!marketTicker || !marketTicker.items.length) return "";
+  if (!marketTicker) {
+    return `<span class="ticker-error">⚠ Market data unavailable — could not load market_ticker.json.</span>`;
+  }
+  if (!marketTicker.items.length) {
+    const attempted = marketTicker.generated_at ? new Date(marketTicker.generated_at).toLocaleString() : "unknown time";
+    return `<span class="ticker-error" title="The daily fetch ran but every FRED request failed (see fetch_market_data.py logs in GitHub Actions). Usually resolves on the next scheduled run.">⚠ Live market data temporarily unavailable — last fetch attempt (${attempted}) failed to reach FRED.</span>`;
+  }
   const items = marketTicker.items.map(it => {
     const dir = it.change == null ? "flat" : it.change > 0 ? "up" : it.change < 0 ? "down" : "flat";
     const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "·";
@@ -711,7 +719,13 @@ function tickerBarHtml() {
 
 // --- Treasury yield curve (real data, no disclaimer) ---------------------
 function yieldCurveHtml() {
-  if (!marketTicker || !marketTicker.yield_curve || !marketTicker.yield_curve.length) return "";
+  if (!marketTicker) {
+    return `<div class="trend-card"><div class="panel-header">Treasury Yield Curve</div><div class="chart-note-error">⚠ Market data unavailable — could not load market_ticker.json.</div></div>`;
+  }
+  if (!marketTicker.yield_curve || !marketTicker.yield_curve.length) {
+    const attempted = marketTicker.generated_at ? new Date(marketTicker.generated_at).toLocaleString() : "unknown time";
+    return `<div class="trend-card"><div class="panel-header">Treasury Yield Curve</div><div class="chart-note-error" title="The daily fetch ran but every FRED request failed. Usually resolves on the next scheduled run.">⚠ Temporarily unavailable — last fetch attempt (${attempted}) failed to reach FRED.</div></div>`;
+  }
   const points = marketTicker.yield_curve;
   const tenorYears = { "2Y": 2, "5Y": 5, "10Y": 10, "30Y": 30 };
   const maxYear = 32;

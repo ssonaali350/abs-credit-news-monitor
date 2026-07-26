@@ -18,6 +18,7 @@ import csv
 import io
 import json
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import urlopen, Request
@@ -56,11 +57,37 @@ UNAVAILABLE = [
 ]
 
 
-def fetch_series(series_id: str):
+FRED_HEADERS = {
+    # Deliberately an honest, plainly-non-browser User-Agent, NOT a spoofed
+    # browser string. Tested both ways: a Chrome-spoofing UA makes Cloudflare
+    # (which fronts fred.stlouisfed.org) reject the request outright and
+    # instantly (a TLS/JA3 fingerprint mismatch is a classic bot-detection
+    # trigger — the request claims to be Chrome but the TLS handshake
+    # doesn't match one), whereas this honest string works reliably. The
+    # GitHub-Actions-specific timeouts this project hit are most likely
+    # Cloudflare rate-limiting/blocking the shared runner IP range rather
+    # than anything about the UA — if retries below don't resolve it,
+    # switching to FRED's official API (api.stlouisfeed.org, needs a free
+    # key) is the more robust next step.
+    "User-Agent": "ABS-Credit-News-Monitor/1.0 (market-data-ticker)",
+}
+
+
+def fetch_series(series_id: str, retries: int = 2, timeout: int = 30):
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    req = Request(url, headers={"User-Agent": "ABS News PoC market-ticker"})
-    with urlopen(req, timeout=20) as resp:
-        text = resp.read().decode("utf-8")
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            req = Request(url, headers=FRED_HEADERS)
+            with urlopen(req, timeout=timeout) as resp:
+                text = resp.read().decode("utf-8")
+            break
+        except Exception as e:
+            last_error = e
+            if attempt < retries:
+                time.sleep(3 * (attempt + 1))
+    else:
+        raise last_error
     rows = list(csv.reader(io.StringIO(text)))
     # rows: [["DATE", series_id], [date, value], ...] — FRED uses "." for missing days
     data_rows = [r for r in rows[1:] if len(r) == 2 and r[1] not in (".", "")]
