@@ -1,0 +1,63 @@
+{
+  "generated_at": "2026-07-26T03:34:13.896846+00:00",
+  "items": [
+    {
+      "series_id": "SOFR",
+      "label": "SOFR",
+      "unit": "%",
+      "value": 3.64,
+      "as_of": "2026-07-23",
+      "change": 0.02
+    },
+    {
+      "series_id": "BAMLC0A0CM",
+      "label": "IG Corporate OAS",
+      "unit": "%",
+      "value": 0.79,
+      "as_of": "2026-07-23",
+      "change": 0.01
+    },
+    {
+      "series_id": "BAMLH0A0HYM2",
+      "label": "HY Corporate OAS",
+      "unit": "%",
+      "value": 2.77,
+      "as_of": "2026-07-23",
+      "change": 0.09
+    },
+    {
+      "series_id": "DGS10",
+      "label": "10Y Treasury",
+      "unit": "%",
+      "value": 4.71,
+      "as_of": "2026-07-23",
+      "change": 0.04
+    },
+    {
+      "series_id": "DGS2",
+      "label": "2Y Treasury",
+      "unit": "%",
+      "value": 4.37,
+      "as_of": "2026-07-23",
+      "change": 0.06
+    }
+  ],
+  "unavailable": [
+    {
+      "label": "CDX.NA.IG",
+      "reason": "Proprietary S&P DJI-licensed CDS index \u2014 no free daily source found"
+    },
+    {
+      "label": "CDX.NA.HY",
+      "reason": "Proprietary S&P DJI-licensed CDS index \u2014 no free daily source found"
+    },
+    {
+      "label": "AAA CLO spread",
+      "reason": "JPMorgan/Palmer Square CLO index research \u2014 no free daily API found"
+    },
+    {
+      "label": "BSL CLO new-issue spread",
+      "reason": "S&P/JPMorgan CLO research reports only \u2014 no free daily API found"
+    }
+  ]
+}

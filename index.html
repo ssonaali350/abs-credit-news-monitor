@@ -285,15 +285,81 @@
   .legend-title { font-weight: 600; min-width: 110px; color: var(--text-secondary); }
   .legend-body .action-cell { margin-right: 4px; font-weight: 500; }
   .legend-body .source-dot { margin-right: 3px; }
+
+  /* --- Live credit-market ticker bar (real data, no disclaimer) --- */
+  .ticker-bar {
+    display: flex; flex-wrap: wrap; gap: 0; padding: 8px 28px;
+    background: var(--page-plane); border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .ticker-item { display: flex; align-items: baseline; gap: 5px; padding: 0 16px; border-right: 1px solid var(--border); }
+  .ticker-item:last-child { border-right: none; }
+  .ticker-label { color: var(--muted); }
+  .ticker-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ticker-change.up { color: var(--status-good); }
+  .ticker-change.down { color: var(--status-critical); }
+  .ticker-change.flat { color: var(--muted); }
+  .ticker-asof { color: var(--muted); font-size: 11px; padding: 0 16px; }
+  .ticker-unavailable { color: var(--muted); font-size: 11px; padding: 0 16px; cursor: help; }
+
+  /* --- Ask AI panel --- */
+  .ask-ai-panel { margin: 10px 28px 0; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; }
+  .ask-ai-row { display: flex; gap: 8px; margin-top: 6px; }
+  #askAiInput {
+    flex: 1; background: var(--page-plane); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 13px;
+  }
+  #askAiButton, #askAiKeyButton {
+    background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  #askAiButton { background: var(--series-auto); color: #fff; border-color: var(--series-auto); }
+  .ask-ai-answer { margin-top: 10px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  .ask-ai-answer:empty { margin-top: 0; }
+  .ask-ai-answer.loading { color: var(--text-secondary); font-style: italic; }
+  .ask-ai-answer.error { color: var(--status-critical); }
+
+  /* --- SAMPLE portfolio: KPI cards + Holdings table --- */
+  .sample-label {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--status-warning); border: 1px solid var(--status-warning);
+    border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle;
+  }
+  .kpi-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .kpi-card { background: var(--page-plane); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; min-width: 130px; }
+  .kpi-card .value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .kpi-card .label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .kpi-scenario-row { display: flex; gap: 8px; margin-top: 4px; }
+  .kpi-scenario { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--text-secondary); }
+  .kpi-scenario.active { border-color: var(--series-auto); color: var(--series-auto); font-weight: 600; }
+
+  .holdings-table-wrap { margin-top: 14px; overflow-x: auto; }
+  .holdings-table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .holdings-table-wrap th { text-align: left; padding: 6px 10px; color: var(--muted); font-weight: 500; font-size: 10px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .holdings-table-wrap td { padding: 7px 10px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
+  .holdings-table-wrap tr:hover td { background: var(--gridline); }
+  .flag-pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; }
 </style>
 </head>
 <body>
+<div id="tickerBar" class="ticker-bar"></div>
+
 <header>
   <h1>ABS Credit News Monitor</h1>
   <div class="subtitle" id="lastUpdated">Loading…</div>
 </header>
 
 <div id="execSummary"></div>
+
+<div id="askAiPanel" class="ask-ai-panel">
+  <div class="panel-header">Ask AI <span class="gauge-window">— query this dashboard's data in plain English</span></div>
+  <div class="ask-ai-row">
+    <input type="text" id="askAiInput" placeholder="e.g. which CLO deals had downgrades this month?">
+    <button id="askAiButton">Ask</button>
+    <button id="askAiKeyButton" title="Set or clear your Anthropic API key (stored only in your browser)">🔑 API key</button>
+  </div>
+  <div id="askAiAnswer" class="ask-ai-answer"></div>
+</div>
 
 <div id="overviewRow" class="overview-row"></div>
 
@@ -326,6 +392,7 @@
   <label><input type="checkbox" id="portfolioOnly"> Portfolio match only (sample)</label>
   <input type="text" id="search" placeholder="Search issuer, title, summary…">
   <button id="refreshBtn">Refresh</button>
+  <button id="exportCsvBtn">Export CSV</button>
   <input type="file" id="fileFallback" accept=".jsonl">
   <button id="themeToggle">🌓</button>
 </div>
@@ -412,6 +479,9 @@ function actionCell(actionType) {
 let records = [];
 let summaries = [];
 let surveillanceFlags = [];
+let positionMonitor = null;
+let marketTicker = null;
+let activeScenario = "BASE";
 let activeTab = "recent";
 let currentGauge = { tone: "neutral", label: "", up: 0, down: 0 };
 
@@ -624,7 +694,21 @@ function sectorStripHtml() {
   }).join("");
 }
 
-// --- Portfolio Watch: sample deal surveillance-flag tiles ----------------
+// --- Live credit-market ticker bar (real data — no disclaimer) -----------
+function tickerBarHtml() {
+  if (!marketTicker || !marketTicker.items.length) return "";
+  const items = marketTicker.items.map(it => {
+    const dir = it.change == null ? "flat" : it.change > 0 ? "up" : it.change < 0 ? "down" : "flat";
+    const arrow = dir === "up" ? "▲" : dir === "down" ? "▼" : "·";
+    const changeHtml = it.change == null ? "" : `<span class="ticker-change ${dir}">${arrow} ${Math.abs(it.change).toFixed(2)}</span>`;
+    return `<span class="ticker-item"><span class="ticker-label">${it.label}</span><span class="ticker-value">${it.value.toFixed(2)}${it.unit}</span>${changeHtml}</span>`;
+  }).join("");
+  const asOf = marketTicker.items[0].as_of;
+  const unavailableTitle = (marketTicker.unavailable || []).map(u => `${u.label}: ${u.reason}`).join("  |  ");
+  return `${items}<span class="ticker-asof">as of ${asOf} (FRED)</span><span class="ticker-unavailable" title="${unavailableTitle}">ⓘ CDX.NA.IG/HY, CLO spreads — no free source</span>`;
+}
+
+// --- SAMPLE PORTFOLIO: KPI cards + surveillance-flag tiles + Holdings table
 function flagColor(flag) {
   return flag === "RED" ? "var(--status-critical)" : flag === "YELLOW" ? "var(--status-warning)" : "var(--status-good)";
 }
@@ -633,15 +717,79 @@ function flagTileHtml(f) {
   const tip = `${f.deal_name} · ${f.rating} · ${f.sector} · ${f.report_month} — OC:${f.oc_status} DPD:${f.dpd_status} XS:${f.xs_status} CNL:${f.cnl_status}`;
   return `<div class="flag-tile" style="border-color:${color}" title="${tip}"><span class="flag-dot" style="background:${color}"></span>${f.deal_id}</div>`;
 }
+
+function setActiveScenario(name) {
+  activeScenario = name;
+  document.getElementById("portfolioPanel").innerHTML = portfolioPanelHtml();
+}
+
+function kpiCardsHtml() {
+  if (!positionMonitor) return "";
+  const t = positionMonitor.totals;
+  const scenarioPills = Object.keys(positionMonitor.scenarios).map(name =>
+    `<span class="kpi-scenario${name === activeScenario ? " active" : ""}" onclick="setActiveScenario('${name}')" title="${positionMonitor.scenarios[name].description}">${name}</span>`
+  ).join("");
+  const worstCase = t.worst_case_loss_m[activeScenario] ?? 0;
+  return `
+    <div class="kpi-cards">
+      <div class="kpi-card"><div class="value">$${t.total_position_m.toFixed(1)}M</div><div class="label">Total Position</div></div>
+      <div class="kpi-card"><div class="value">${t.weighted_avg_oc_gap_pp.toFixed(2)}pp</div><div class="label">Weighted Avg OC Gap</div></div>
+      <div class="kpi-card">
+        <div class="value"><span style="color:var(--status-critical)">${t.flag_counts.RED}</span> / <span style="color:var(--status-warning)">${t.flag_counts.YELLOW}</span> / <span style="color:var(--status-good)">${t.flag_counts.GREEN}</span></div>
+        <div class="label">RED / YELLOW / GREEN deals</div>
+      </div>
+      <div class="kpi-card"><div class="value">$${t.aggregate_mtm_pl_m.toFixed(2)}M</div><div class="label">Aggregate MTM P&amp;L</div></div>
+      <div class="kpi-card">
+        <div class="value">$${worstCase.toFixed(2)}M</div>
+        <div class="label">Worst-Case Loss</div>
+        <div class="kpi-scenario-row">${scenarioPills}</div>
+      </div>
+    </div>`;
+}
+
+function holdingsTableHtml() {
+  if (!positionMonitor) return "";
+  const rows = positionMonitor.tranches.map(t => {
+    const worstCase = t.worst_case_loss_m[activeScenario] ?? 0;
+    return `
+    <tr>
+      <td>${t.deal_id}</td>
+      <td>${t.tranche}</td>
+      <td>${t.sector}</td>
+      <td>$${t.jh_position_m}M</td>
+      <td>${(t.current_oc_ratio * 100).toFixed(2)}%</td>
+      <td>${t.oc_gap_pp.toFixed(2)}pp</td>
+      <td>$${t.mtm_pl_m.toFixed(3)}M</td>
+      <td>$${worstCase.toFixed(3)}M</td>
+      <td><span class="flag-pill" style="background:${flagColor(t.oc_status_flag)}">${t.oc_status_flag}</span></td>
+      <td><span class="flag-pill" style="background:${flagColor(t.action_flag)}">${t.action_flag}</span></td>
+    </tr>`;
+  }).join("");
+  return `
+    <div class="holdings-table-wrap">
+      <table>
+        <thead><tr>
+          <th>Deal ID</th><th>Tranche</th><th>Sector</th><th>JH Position</th><th>OC Ratio</th>
+          <th>OC Gap</th><th>MTM P&amp;L</th><th>Worst-Case Loss (${activeScenario})</th>
+          <th>OC Status</th><th>Action Flag</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
 function portfolioPanelHtml() {
-  if (!surveillanceFlags.length) return "";
+  if (!surveillanceFlags.length && !positionMonitor) return "";
   const tiles = surveillanceFlags.map(flagTileHtml).join("");
   return `
     <div class="portfolio-panel">
-      <div class="panel-header">Portfolio Watch — Sample Deal Flags
-        <span class="info-icon" title="Sample/demo data only. These tiles come directly from the Surveillance Flags tab in ABS_Monitor.xlsx (model-driven, report month Jun-25) for the same 8 illustrative deals used throughout this dashboard — not real fund positions or ratings. News items below tagged &quot;SAMPLE: &lt;deal&gt;&quot; reference this same demo list.">ⓘ</span>
+      <div class="panel-header">SAMPLE PORTFOLIO — Illustrative Holdings
+        <span class="sample-label">SAMPLE</span>
+        <span class="info-icon" title="Sample/demo data only. Everything in this section comes from ABS_Monitor.xlsx (Position Monitor + Surveillance Flags tabs, model-driven, report month Jun-25) for 8 illustrative deals — not real fund positions, P&amp;L, or ratings. News items elsewhere tagged &quot;SAMPLE: &lt;deal&gt;&quot; reference this same demo list.">ⓘ</span>
       </div>
+      ${kpiCardsHtml()}
       <div class="flag-tiles">${tiles}</div>
+      ${holdingsTableHtml()}
     </div>`;
 }
 
@@ -650,6 +798,7 @@ function renderOverview() {
   document.getElementById("overviewRow").innerHTML = gaugeHtml(currentGauge) + trendChartHtml();
   document.getElementById("sectorStrip").innerHTML = sectorStripHtml();
   document.getElementById("portfolioPanel").innerHTML = portfolioPanelHtml();
+  document.getElementById("tickerBar").innerHTML = tickerBarHtml();
 }
 
 function renderStats(scoped) {
@@ -823,10 +972,12 @@ function setLastUpdated() {
     `${records.length} items total · last ingested ${new Date(latest.ingested_at).toLocaleString()}`;
 }
 
-function load(newsText, summariesText, flagsText) {
+function load(newsText, summariesText, flagsText, positionText, tickerText) {
   records = parseJsonl(newsText);
   summaries = summariesText ? parseJsonl(summariesText) : [];
   surveillanceFlags = flagsText ? JSON.parse(flagsText) : [];
+  positionMonitor = positionText ? JSON.parse(positionText) : null;
+  marketTicker = tickerText ? JSON.parse(tickerText) : null;
   populateFilters();
   renderOverview();
   renderExecSummary();
@@ -836,21 +987,120 @@ function load(newsText, summariesText, flagsText) {
 
 async function fetchData() {
   try {
-    const [newsRes, summaryRes, flagsRes] = await Promise.all([
+    const [newsRes, summaryRes, flagsRes, positionRes, tickerRes] = await Promise.all([
       fetch("structured_news.jsonl?_=" + Date.now()),
       fetch("daily_summaries.jsonl?_=" + Date.now()).catch(() => null),
       fetch("sample_surveillance_flags.json?_=" + Date.now()).catch(() => null),
+      fetch("position_monitor.json?_=" + Date.now()).catch(() => null),
+      fetch("market_ticker.json?_=" + Date.now()).catch(() => null),
     ]);
     if (!newsRes.ok) throw new Error("fetch failed");
     const newsText = await newsRes.text();
     const summaryText = (summaryRes && summaryRes.ok) ? await summaryRes.text() : "";
     const flagsText = (flagsRes && flagsRes.ok) ? await flagsRes.text() : "";
-    load(newsText, summaryText, flagsText);
+    const positionText = (positionRes && positionRes.ok) ? await positionRes.text() : "";
+    const tickerText = (tickerRes && tickerRes.ok) ? await tickerRes.text() : "";
+    load(newsText, summaryText, flagsText, positionText, tickerText);
     document.getElementById("fileFallback").style.display = "none";
   } catch (e) {
     document.getElementById("fileFallback").style.display = "inline-block";
     document.getElementById("lastUpdated").textContent = "Could not fetch structured_news.jsonl directly — choose the file manually.";
   }
+}
+
+// --- Ask AI: client-side only, using the *visitor's own* Anthropic API key
+// (never this site's) — stored solely in their browser's localStorage, sent
+// only directly to Anthropic's API. Uses the documented direct-browser-access
+// header rather than a server proxy, since this is a static (GitHub Pages)
+// site with no backend to hold a shared key safely.
+const ASK_AI_KEY_STORAGE = "abs_dashboard_anthropic_key";
+
+function buildAskAiContext() {
+  const newsLines = records.slice()
+    .sort((a, b) => itemDate(b) - itemDate(a))
+    .slice(0, 400)
+    .map(r => `${formatDate(r.published || r.ingested_at)} | ${r.sector} | ${r.action_type} | rel=${r.relevance_score} | issuer=${r.issuer || "?"} | ${r.title}`)
+    .join("\n");
+  const holdingsLines = positionMonitor
+    ? positionMonitor.tranches.map(t => `${t.deal_id} | ${t.tranche} | ${t.sector} | pos=$${t.jh_position_m}M | OC_gap=${t.oc_gap_pp.toFixed(2)}pp | flag=${t.action_flag}`).join("\n")
+    : "(no holdings data loaded)";
+  return { newsLines, holdingsLines };
+}
+
+async function handleAskAi() {
+  const input = document.getElementById("askAiInput");
+  const answerEl = document.getElementById("askAiAnswer");
+  const question = input.value.trim();
+  if (!question) return;
+
+  const key = localStorage.getItem(ASK_AI_KEY_STORAGE);
+  if (!key) {
+    answerEl.className = "ask-ai-answer error";
+    answerEl.textContent = 'No API key set — click "🔑 API key" to add your own Anthropic API key (stored only in your browser, sent only to Anthropic’s API).';
+    return;
+  }
+
+  answerEl.className = "ask-ai-answer loading";
+  answerEl.textContent = "Thinking…";
+
+  const { newsLines, holdingsLines } = buildAskAiContext();
+  const prompt = `You answer questions about an ABS credit news dashboard's own data. Use ONLY the data below; if the answer isn't in it, say so plainly.
+
+NEWS ITEMS (date | sector | action_type | relevance 1-5 | issuer | title), most recent first, up to 400:
+${newsLines}
+
+SAMPLE PORTFOLIO HOLDINGS (illustrative demo data, not real fund positions):
+${holdingsLines}
+
+Question: ${question}
+
+Answer concisely, in a few sentences.`;
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error((data.error && data.error.message) || `HTTP ${resp.status}`);
+    answerEl.className = "ask-ai-answer";
+    answerEl.textContent = data.content[0].text;
+  } catch (e) {
+    answerEl.className = "ask-ai-answer error";
+    answerEl.textContent = "Error: " + e.message;
+  }
+}
+
+// --- CSV export: currently filtered/visible news items -------------------
+function exportCsv() {
+  const base = activeTab === "recent" ? records.filter(isRecent) : records;
+  const filtered = applyFilters(base);
+  const headers = ["date", "sector", "issuer", "action_type", "relevance_score", "source_feed", "link", "summary"];
+  const escapeCell = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+  const lines = [headers.join(",")];
+  filtered.forEach(r => {
+    lines.push([
+      formatDate(r.published || r.ingested_at), r.sector, r.issuer || "", r.action_type,
+      r.relevance_score, r.source_feed, r.link, r.summary || "",
+    ].map(escapeCell).join(","));
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `abs_news_export_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 document.getElementById("sectorFilter").addEventListener("change", render);
@@ -861,11 +1111,26 @@ document.getElementById("recencyWindow").addEventListener("change", render);
 document.getElementById("portfolioOnly").addEventListener("change", render);
 document.getElementById("search").addEventListener("input", render);
 document.getElementById("refreshBtn").addEventListener("click", fetchData);
+document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
+document.getElementById("askAiButton").addEventListener("click", handleAskAi);
+document.getElementById("askAiInput").addEventListener("keydown", (e) => { if (e.key === "Enter") handleAskAi(); });
+document.getElementById("askAiKeyButton").addEventListener("click", () => {
+  const hasKey = !!localStorage.getItem(ASK_AI_KEY_STORAGE);
+  const value = prompt(
+    "Enter your Anthropic API key (stored only in this browser's local storage; sent only directly to Anthropic's API, never to this site). Leave blank and submit to clear it.",
+    hasKey ? "••••••••" : ""
+  );
+  if (value === null) return; // cancelled
+  const trimmed = value.trim();
+  if (trimmed === "" ) { localStorage.removeItem(ASK_AI_KEY_STORAGE); return; }
+  if (trimmed === "••••••••") return; // unchanged placeholder, do nothing
+  localStorage.setItem(ASK_AI_KEY_STORAGE, trimmed);
+});
 document.getElementById("fileFallback").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => load(reader.result, "", "");
+  reader.onload = () => load(reader.result, "", "", "", "");
   reader.readAsText(file);
 });
 document.getElementById("themeToggle").addEventListener("click", () => {

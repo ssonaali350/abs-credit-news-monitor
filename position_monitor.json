@@ -1,0 +1,219 @@
+{
+  "tranches": [
+    {
+      "deal_id": "CARL-2024-1",
+      "tranche": "Class A (AAA)",
+      "rating": "AAA",
+      "sector": "Prime Auto",
+      "report_month": "Jun-25",
+      "jh_position_m": 35,
+      "current_oc_ratio": 1.0622710622710623,
+      "oc_gap_pp": -0.772893772893779,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": 0
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "CARL-2024-2",
+      "tranche": "Class A (AAA)",
+      "rating": "AAA",
+      "sector": "Prime Auto",
+      "report_month": "Jun-25",
+      "jh_position_m": 28,
+      "current_oc_ratio": 1.0630816959669078,
+      "oc_gap_pp": 0.30816959669077715,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": 0
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "CARL-2024-2",
+      "tranche": "Class B (AA)",
+      "rating": "AA",
+      "sector": "Prime Auto",
+      "report_month": "Jun-25",
+      "jh_position_m": 5.5,
+      "current_oc_ratio": 1.0630816959669078,
+      "oc_gap_pp": 0.30816959669077715,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": -0.2183
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "CNH-2024-1",
+      "tranche": "Class A (AAA)",
+      "rating": "AAA",
+      "sector": "Equipment",
+      "report_month": "Jun-25",
+      "jh_position_m": 45,
+      "current_oc_ratio": 1.0809682804674459,
+      "oc_gap_pp": 0.09682804674457923,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": 0
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "CNH-2024-1",
+      "tranche": "Class B (AA)",
+      "rating": "AA",
+      "sector": "Equipment",
+      "report_month": "Jun-25",
+      "jh_position_m": 7,
+      "current_oc_ratio": 1.0809682804674459,
+      "oc_gap_pp": 0.09682804674457923,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": 0
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "CNH-2024-2",
+      "tranche": "Class A (AAA)",
+      "rating": "AAA",
+      "sector": "Equipment",
+      "report_month": "Jun-25",
+      "jh_position_m": 38,
+      "current_oc_ratio": 1.0800385728061717,
+      "oc_gap_pp": 1.0038572806171597,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": -0.981,
+        "STRESS": -1.4715,
+        "SEVERE": -2.4525
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "DCTR-2024-1",
+      "tranche": "Class A (AAA)",
+      "rating": "AAA",
+      "sector": "Data Center",
+      "report_month": "Jun-25",
+      "jh_position_m": 55,
+      "current_oc_ratio": 1.0905943450663589,
+      "oc_gap_pp": 0.059434506635880346,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": -0.2933,
+        "STRESS": -0.44,
+        "SEVERE": -0.7333
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "DCTR-2024-1",
+      "tranche": "Class B (AA)",
+      "rating": "AA",
+      "sector": "Data Center",
+      "report_month": "Jun-25",
+      "jh_position_m": 10,
+      "current_oc_ratio": 1.0905943450663589,
+      "oc_gap_pp": 0.059434506635880346,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": 0
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "WEST-2024-1",
+      "tranche": "Class A (AAA)",
+      "rating": "AAA",
+      "sector": "Subprime Auto",
+      "report_month": "Jun-25",
+      "jh_position_m": 18,
+      "current_oc_ratio": 1.116152450090744,
+      "oc_gap_pp": -0.3847549909256065,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": -2.6924
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    },
+    {
+      "deal_id": "SOLR-2023-1",
+      "tranche": "Class A (AAA)",
+      "rating": "AAA",
+      "sector": "Solar",
+      "report_month": "Jun-25",
+      "jh_position_m": 22,
+      "current_oc_ratio": 1.0734966592427617,
+      "oc_gap_pp": -0.6503340757238352,
+      "mtm_pl_m": 0,
+      "worst_case_loss_m": {
+        "BASE": 0,
+        "STRESS": 0,
+        "SEVERE": 0
+      },
+      "oc_status_flag": "RED",
+      "action_flag": "RED"
+    }
+  ],
+  "totals": {
+    "total_position_m": 263.5,
+    "weighted_avg_oc_gap_pp": 0.034,
+    "flag_counts": {
+      "RED": 10,
+      "YELLOW": 0,
+      "GREEN": 0
+    },
+    "aggregate_mtm_pl_m": 0,
+    "worst_case_loss_m": {
+      "BASE": -1.2743,
+      "STRESS": -1.9115,
+      "SEVERE": -6.0965
+    }
+  },
+  "scenarios": {
+    "BASE": {
+      "spread_add_bps": 0,
+      "cdr_mult": 1,
+      "ba_mult": 1,
+      "description": "Current market \u2014 actual spreads, actual CDR"
+    },
+    "STRESS": {
+      "spread_add_bps": 40,
+      "cdr_mult": 1.5,
+      "ba_mult": 3,
+      "description": "Moderate recession: +40bps, CDR 1.5x, B/A 3x"
+    },
+    "SEVERE": {
+      "spread_add_bps": 100,
+      "cdr_mult": 2.5,
+      "ba_mult": 6,
+      "description": "Deep recession \u2014 +100bps, CDR 2.5x, B/A 6x \u2014 may be illiquid"
+    }
+  }
+}

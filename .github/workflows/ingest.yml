@@ -27,10 +27,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python3 ingest.py --limit 50
 
+      - name: Fetch live market data (SOFR, OAS spreads, Treasury yields)
+        run: python3 fetch_market_data.py
+
       - name: Commit updated data files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add structured_news.jsonl seen.json daily_summaries.jsonl sample_holdings.json
+          git add structured_news.jsonl seen.json daily_summaries.jsonl sample_holdings.json market_ticker.json
           git diff --cached --quiet || git commit -m "Automated news ingest $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
