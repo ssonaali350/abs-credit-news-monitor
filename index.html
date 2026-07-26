@@ -251,14 +251,17 @@
   .watchlist-tag { color: var(--status-good); border: 1px solid var(--status-good); }
   .portfolio-tag { color: var(--text-primary); border: 1px solid var(--text-primary); font-weight: 500; }
 
-  /* Consolidated source name + credibility badge, one pill instead of two. */
-  .source-tag {
-    display: inline-flex; align-items: center; gap: 3px;
-    font-size: 11px; border-radius: 10px; padding: 1px 8px; margin: 1px 4px 1px 0;
-    text-decoration: none; white-space: nowrap;
+  /* Source/feed is provenance metadata, demoted to a small dot + tooltip
+     rather than visible text — it's not the main signal a PM scans for. */
+  .source-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    margin-right: 6px; cursor: help; vertical-align: middle;
   }
-  .source-tag.high { color: var(--status-good); border: 1px solid var(--status-good); }
-  .source-tag.low { color: var(--muted); border: 1px solid var(--border); }
+
+  /* Action gets the strongest visual weight of any field — bold text plus
+     a small shape-coded icon, since it's what a PM scans for first. */
+  .action-cell { font-weight: 600; }
+  .action-icon { display: inline-block; width: 14px; text-align: center; margin-right: 4px; }
 
   .read-link { color: var(--series-auto); font-size: 12px; font-weight: 500; text-decoration: none; white-space: nowrap; }
   .read-link:hover { text-decoration: underline; }
@@ -267,6 +270,21 @@
   .summary { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
   .detail-tags { margin-top: 6px; }
   .empty { padding: 24px; text-align: center; color: var(--text-secondary); background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; }
+
+  .legend {
+    margin: 0 28px 16px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+  .legend summary { cursor: pointer; font-weight: 500; color: var(--text-secondary); }
+  .legend-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .legend-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+  .legend-title { font-weight: 600; min-width: 110px; color: var(--text-secondary); }
+  .legend-body .action-cell { margin-right: 4px; font-weight: 500; }
+  .legend-body .source-dot { margin-right: 3px; }
 </style>
 </head>
 <body>
@@ -312,6 +330,45 @@
   <button id="themeToggle">🌓</button>
 </div>
 
+<details class="legend">
+  <summary>ⓘ How to read this dashboard</summary>
+  <div class="legend-body">
+    <div class="legend-group">
+      <div class="legend-title">Action</div>
+      <div>
+        <span class="action-cell"><span class="action-icon" style="color:var(--status-good)">▲</span>Rating Upgrade</span>
+        <span class="action-cell"><span class="action-icon" style="color:var(--status-critical)">▼</span>Rating Downgrade</span>
+        <span class="action-cell"><span class="action-icon" style="color:var(--status-warning)">◆</span>Outlook Change</span>
+        <span class="action-cell"><span class="action-icon" style="color:var(--series-auto)">●</span>New Issuance</span>
+        <span class="action-cell"><span class="action-icon" style="color:var(--text-secondary)">■</span>Performance/Servicer Report</span>
+        <span class="action-cell"><span class="action-icon" style="color:var(--text-secondary)">↕</span>Spread/Market Move</span>
+        <span class="action-cell"><span class="action-icon" style="color:var(--muted)">▫</span>Filing/Disclosure</span>
+        <span class="action-cell"><span class="action-icon" style="color:var(--muted)">§</span>Regulatory</span>
+      </div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">Row color (left border)</div>
+      <div>Green = upgrade/affirmation &nbsp;·&nbsp; Red = downgrade/breach &nbsp;·&nbsp; Gray = routine/other. Relevance ≤2 rows are dimmed; relevance ≥4 rows are highlighted.</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">Sector badge</div>
+      <div>Colored = one of the 8 core structured-product categories (Auto ABS, CLO, RMBS, CMBS, Solar/Renewable ABS, Credit Card ABS, Student Loan ABS, Esoteric/Whole-Business ABS). Gray = outside core coverage (Consumer ABS, Corporate Credit, Other).</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">Source dot <span class="gauge-window">(hover for the feed name)</span></div>
+      <div><span class="source-dot" style="background:var(--status-good)"></span>High-signal — rating agency or regulator (S&amp;P Global, KBRA, Fitch, Moody's, SEC EDGAR) &nbsp;·&nbsp; <span class="source-dot" style="background:var(--muted)"></span>Aggregator/general news coverage</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">Relevance</div>
+      <div>1-5 score for how directly the item affects an ABS surveillance/asset-management audience.</div>
+    </div>
+    <div class="legend-group">
+      <div class="legend-title">Tags</div>
+      <div><span class="watchlist-tag">✓ example</span> matches your sector watchlist (subprime/prime auto, solar) &nbsp;·&nbsp; <span class="portfolio-tag">SAMPLE: example</span> matches the sample/demo portfolio-watch list — not a real fund position.</div>
+    </div>
+  </div>
+</details>
+
 <div id="sections"></div>
 
 <script>
@@ -330,6 +387,27 @@ const SECTOR_COLORS = {
 };
 const REL_COLORS = { 1: "var(--seq-150)", 2: "var(--seq-300)", 3: "var(--seq-450)", 4: "var(--seq-550)", 5: "var(--seq-650)" };
 const ACTION_GROUPS_ORDER = ["Rating Actions", "Performance/Servicer Reports", "New Issuance/Market Color", "Other"];
+
+// Shape (not just color) carries action-type identity, so it still reads
+// for colorblind viewers or in the table-view fallback. Status colors
+// (good/warning/critical) are reserved for urgency, matching the row's
+// left-border color for upgrades/downgrades; everything else stays neutral.
+const ACTION_ICONS = {
+  "Rating Upgrade":              { icon: "▲", color: "var(--status-good)" },
+  "Rating Downgrade":            { icon: "▼", color: "var(--status-critical)" },
+  "Outlook Change":              { icon: "◆", color: "var(--status-warning)" },
+  "New Issuance":                { icon: "●", color: "var(--series-auto)" },
+  "Performance/Servicer Report": { icon: "■", color: "var(--text-secondary)" },
+  "Spread/Market Move":          { icon: "↕", color: "var(--text-secondary)" },
+  "Filing/Disclosure":           { icon: "▫", color: "var(--muted)" },
+  "Regulatory":                  { icon: "§", color: "var(--muted)" },
+};
+const DEFAULT_ACTION_ICON = { icon: "·", color: "var(--muted)" };
+
+function actionCell(actionType) {
+  const { icon, color } = ACTION_ICONS[actionType] || DEFAULT_ACTION_ICON;
+  return `<span class="action-cell"><span class="action-icon" style="color:${color}">${icon}</span>${actionType}</span>`;
+}
 
 let records = [];
 let summaries = [];
@@ -616,20 +694,31 @@ function classifySourceSignalFallback(r) {
   return /s&p|kbra|moody|fitch|dbrs|morningstar/.test(text) ? "high" : "low";
 }
 
-// Consolidated source-name + credibility indicator — one pill, not two.
+// Renamed for display only (raw source_feed data is untouched) — the
+// original name shared the words "Market Color" with the "New Issuance/
+// Market Color" section, which read as if it were a competing
+// classification bucket rather than just a feed label.
+const SOURCE_FEED_RENAMES = { "Market Color (General)": "General News" };
+
 function shortenSource(feed) {
-  return (feed || "")
+  const s = (feed || "")
     .replace(/^Google News - /, "")
     .replace(/^SEC EDGAR - /, "SEC: ")
     .replace(/ \(Rating Agencies\)$/, "")
     .trim();
+  return SOURCE_FEED_RENAMES[s] || s;
 }
-function sourceTag(r) {
+
+// Source/feed is provenance metadata, not the main signal a PM scans for —
+// demoted to a small colored dot + tooltip rather than a full text pill.
+// Hover (or the title attribute on mobile/tap) reveals the actual feed name
+// and what the color means.
+function sourceIndicator(r) {
   const sig = r.source_signal || classifySourceSignalFallback(r);
   const label = shortenSource(r.source_feed);
-  const cls = sig === "high" ? "source-tag high" : "source-tag low";
-  const icon = sig === "high" ? "★ " : "";
-  return `<a class="${cls}" href="${r.link}" target="_blank" rel="noopener" title="${r.source_feed}">${icon}${label}</a>`;
+  const dotColor = sig === "high" ? "var(--status-good)" : "var(--muted)";
+  const meaning = sig === "high" ? "high-signal (rating agency / regulator)" : "aggregator / general news";
+  return `<span class="source-dot" style="background:${dotColor}" title="${label} — ${meaning}"></span>`;
 }
 
 function applyFilters(list) {
@@ -682,15 +771,15 @@ function rowHtml(r) {
       <td>${formatDate(r.published || r.ingested_at)}</td>
       <td>${sectorBadge(r.sector)}</td>
       <td>${issuerCell(r)}</td>
-      <td>${r.action_type}</td>
+      <td>${actionCell(r.action_type)}</td>
       <td>${relBar(r.relevance_score)}</td>
-      <td>${readLink(r)}</td>
+      <td>${sourceIndicator(r)}${readLink(r)}</td>
     </tr>
     <tr class="row-detail" style="display:none; border-left:3px solid ${borderColor}">
       <td colspan="6">
         <div class="detail-title">${r.title}</div>
         <div class="summary">${r.summary || ""}</div>
-        <div class="detail-tags">${watchlistTags(r.watchlist_sectors)}${portfolioTags(r.portfolio_matches)}${sourceTag(r)}</div>
+        <div class="detail-tags">${watchlistTags(r.watchlist_sectors)}${portfolioTags(r.portfolio_matches)}</div>
       </td>
     </tr>
   `;
