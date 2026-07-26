@@ -2,8 +2,12 @@ name: Daily News Ingest
 
 on:
   schedule:
-    # 12:00 UTC ≈ 8am EDT / 7am EST — adjust if you want a different local time.
-    - cron: '0 12 * * *'
+    # 12:07 UTC ≈ 8:07am EDT / 7:07am EST. Deliberately NOT :00 — GitHub's own
+    # docs warn top-of-hour is the most congested slot for scheduled workflows
+    # and can cause delays or dropped runs (which is what happened on the
+    # original 0 12 * * * schedule: it never fired at all on its first
+    # scheduled day). Off-the-hour minutes are far less likely to be affected.
+    - cron: '7 12 * * *'
   workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
 
 permissions:
