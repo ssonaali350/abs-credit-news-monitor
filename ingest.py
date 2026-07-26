@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from feeds import (
     FEEDS, SEC_USER_AGENT, KEYWORD_FILTERED_FEEDS, matches_abs_keywords, is_junk_title,
     classify_action_group, classify_source_signal, match_holdings, SAMPLE_HOLDINGS,
+    is_near_duplicate, is_dedup_scoped, DEDUP_WINDOW_DAYS,
 )
 
 BASE_DIR = Path(__file__).parent
@@ -59,7 +60,16 @@ return ONLY a JSON object (no prose, no markdown fences) with these fields:
 
 - "issuer": best-guess issuer/entity name, or null if not identifiable
 - "sector": exactly one of {sectors}
-- "action_type": exactly one of {actions}
+- "action_type": exactly one of {actions}. Classify by the UNDERLYING EVENT, \
+not the specific verb the headline happens to use — different outlets \
+describe the same kind of event differently, and near-duplicate coverage of \
+one event must still land in the same bucket. In particular: "sets rates", \
+"announces rates", "prices", "closes", and "completes" a deal all describe \
+pricing/closing a securitization and must all map to "New Issuance"; \
+"assigns", "affirms", "raises", or "cuts" a rating map to the matching \
+Rating Upgrade/Downgrade/Outlook Change type; "reports on", "publishes \
+performance for", and "servicer update on" a deal all map to \
+"Performance/Servicer Report".
 - "relevance_score": integer 1-5, how relevant this is to an ABS surveillance/\
 asset management audience (5 = directly affects a specific deal or asset class \
 they'd hold, 1 = generic/unrelated)
@@ -111,6 +121,20 @@ def is_recent_record(record: dict, days: int) -> bool:
     if dt is None:
         return False
     return (datetime.now(timezone.utc) - dt) <= timedelta(days=days)
+
+
+def is_duplicate(pub_dt, title: str, fingerprints: list, window_days: int = DEDUP_WINDOW_DAYS) -> bool:
+    """Near-duplicate check against a list of (published_dt, title) pairs.
+    Only compares items whose published dates are close together — two
+    unrelated deals that happen to use similar boilerplate language shouldn't
+    collide just because they share a template, so date proximity is
+    required in addition to headline similarity."""
+    for other_dt, other_title in fingerprints:
+        if pub_dt and other_dt and abs((pub_dt - other_dt).days) > window_days:
+            continue
+        if is_near_duplicate(title, other_title):
+            return True
+    return False
 
 
 def structure_item(client: Anthropic, title: str, source: str, published: str, snippet: str) -> dict:
@@ -180,6 +204,24 @@ def main():
     seen = load_seen()
     new_records = []
     filtered_out = 0
+    duplicate_filtered = 0
+
+    # Fingerprint index for near-duplicate detection, seeded from everything
+    # already ingested (excluding SEC EDGAR and rating-agency domain-scoped
+    # feeds — see is_dedup_scoped in feeds.py for why). New items get
+    # appended as they're processed, so two near-duplicates fetched from
+    # different feeds in the *same* run (the original bug report) are caught
+    # too, not just cross-run repeats.
+    fingerprints = []
+    if OUTPUT_FILE.exists():
+        for line in OUTPUT_FILE.read_text().splitlines():
+            if not line.strip():
+                continue
+            existing = json.loads(line)
+            if not is_dedup_scoped(existing.get("source_feed", "")):
+                continue
+            existing_dt = parse_published(existing.get("published")) or parse_published(existing.get("ingested_at"))
+            fingerprints.append((existing_dt, existing["title"]))
 
     for name, url in FEEDS:
         try:
@@ -210,6 +252,12 @@ def main():
                 filtered_out += 1
                 continue
 
+            candidate_pub_dt = parse_published(published)
+            if is_dedup_scoped(name) and is_duplicate(candidate_pub_dt, title, fingerprints):
+                seen.add(iid)
+                duplicate_filtered += 1
+                continue
+
             try:
                 structured = structure_item(client, title, name, published, snippet)
             except Exception as e:
@@ -231,6 +279,8 @@ def main():
                 f"{title} {record.get('issuer') or ''} {record.get('summary') or ''}"
             )
             new_records.append(record)
+            if is_dedup_scoped(name):
+                fingerprints.append((candidate_pub_dt, title))
             seen.add(iid)
 
     if new_records:
@@ -259,7 +309,8 @@ def main():
     # Keep the frontend's copy of the sample holdings list in sync (no API cost).
     HOLDINGS_FILE.write_text(json.dumps(SAMPLE_HOLDINGS, indent=2))
 
-    print(f"\n{len(new_records)} new item(s) processed ({filtered_out} skipped by keyword pre-filter, no API cost).")
+    print(f"\n{len(new_records)} new item(s) processed ({filtered_out} skipped by keyword pre-filter, "
+          f"{duplicate_filtered} skipped as near-duplicates, no API cost).")
     flagged = [r for r in new_records if r.get("watchlist_sectors")]
     if flagged:
         print(f"{len(flagged)} matched watchlist sectors:")

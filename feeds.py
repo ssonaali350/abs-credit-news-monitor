@@ -13,6 +13,8 @@ rating-agency domains), never a static issuer list — new/unfamiliar issuers
 are scored by the LLM on content, not filtered out for being unrecognized.
 """
 
+import re
+
 # SEC requires a descriptive User-Agent with contact info on every request.
 SEC_USER_AGENT = "ABS News PoC jena.so@northeastern.edu"
 
@@ -174,3 +176,82 @@ SAMPLE_HOLDINGS = [
 def match_holdings(text: str):
     t = text.lower()
     return [h["name"] for h in SAMPLE_HOLDINGS if any(kw in t for kw in h["keywords"])]
+
+
+# --- Near-duplicate detection ----------------------------------------------
+# The same event (e.g. "MoneyMe sets/announces interest rates for its $455.4M
+# auto ABS deal") often gets covered by more than one outlet, and shows up in
+# more than one of our Google News queries with slightly different wording.
+# Token-overlap (Jaccard) similarity on the headline catches this without
+# needing an exact-string match — differing verbs ("sets" vs "announces") or
+# phrasing ("ABS" vs "asset-backed securities") still leave most of the
+# distinctive tokens (issuer name, dollar amount, asset type) in common.
+#
+# Two safety measures keep this from over-firing on financial-news headlines,
+# which are often heavily templated:
+#   1. Scope: only applied to generic aggregator coverage (is_dedup_scoped).
+#      SEC EDGAR titles ("ABS-EE - CompanyName (CIK) (Filer)") are unique
+#      authoritative filings, never syndicated reposts — token overlap there
+#      just measures how similar two *different* deals' boilerplate is.
+#      Rating-agency domain-scoped feeds (KBRA/S&P/Fitch/Moody's) publish
+#      short, template-heavy titles (presale notices, monthly indices) where
+#      the fund name or reporting month is 1-2 tokens out of ten — real
+#      duplicates there are rare anyway (an agency publishes a rating action
+#      once), so the risk/reward favors excluding them entirely.
+#   2. Anchor check: if both headlines contain a dollar amount and those
+#      amounts differ, they're always different deals — even the same
+#      company's own press releases are near-identically worded template to
+#      template, so two different-sized MoneyMe issuances ("$455.4M" vs
+#      "$517.5M") sit right at the edge of the token-overlap threshold.
+DEDUP_WINDOW_DAYS = 5
+DEDUP_THRESHOLD = 0.55
+
+_DEDUP_STOPWORDS = {
+    "a", "an", "the", "for", "of", "to", "in", "on", "with", "following",
+    "after", "and", "or", "at", "by", "its", "this", "that", "from", "as",
+}
+
+_DOLLAR_RE = re.compile(r"\$\s?([\d,.]+)\s?(million|mn|m|billion|bn)\b", re.IGNORECASE)
+
+
+def is_dedup_scoped(source_feed: str) -> bool:
+    return not source_feed.startswith("SEC EDGAR") and source_feed not in DOMAIN_SCOPED_FEEDS
+
+
+def _dollar_anchor(title: str):
+    m = _DOLLAR_RE.search(title)
+    if not m:
+        return None
+    amount = m.group(1).replace(",", "")
+    unit = "bn" if m.group(2).lower() in ("billion", "bn") else "m"
+    return f"{amount}{unit}"
+
+
+def dedup_tokens(title: str) -> set:
+    """Normalized token set used to detect near-duplicate headlines.
+
+    Tokenizes the full title rather than trying to strip a trailing
+    " - Publisher" suffix by string position: that assumption holds for
+    Google News titles ("Headline - Publisher") but breaks for SEC EDGAR
+    titles ("ABS-EE - CompanyName (CIK) (Filer)"), where the *first* " - "
+    separates form type from company name.
+    """
+    headline = title.lower()
+    # Normalize dollar amounts so "$455.4M" / "$455.4 million" collapse to
+    # the same token instead of looking like different words.
+    headline = re.sub(r"\$\s?([\d,.]+)\s?(million|mn|m)\b", lambda m: m.group(1).replace(",", "") + "m", headline)
+    headline = re.sub(r"\$\s?([\d,.]+)\s?(billion|bn)\b", lambda m: m.group(1).replace(",", "") + "bn", headline)
+    words = re.findall(r"[a-z0-9.]+", headline)
+    return {w for w in words if w not in _DEDUP_STOPWORDS and len(w) > 1}
+
+
+def is_near_duplicate(title_a: str, title_b: str, threshold: float = DEDUP_THRESHOLD) -> bool:
+    """True if two headlines likely describe the same underlying event."""
+    anchor_a, anchor_b = _dollar_anchor(title_a), _dollar_anchor(title_b)
+    if anchor_a and anchor_b and anchor_a != anchor_b:
+        return False  # different dollar amounts -> always different deals
+    tokens_a, tokens_b = dedup_tokens(title_a), dedup_tokens(title_b)
+    union = len(tokens_a | tokens_b)
+    if not union:
+        return False
+    return (len(tokens_a & tokens_b) / union) >= threshold
