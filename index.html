@@ -309,7 +309,7 @@
     flex: 1; background: var(--page-plane); color: var(--text-primary);
     border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 13px;
   }
-  #askAiButton, #askAiKeyButton {
+  #askAiButton {
     background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border);
     border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer; white-space: nowrap;
   }
@@ -358,7 +358,6 @@
   <div class="ask-ai-row">
     <input type="text" id="askAiInput" placeholder="e.g. which CLO deals had downgrades this month?">
     <button id="askAiButton">Ask</button>
-    <button id="askAiKeyButton" title="Set or clear your Anthropic API key (stored only in your browser)">🔑 API key</button>
   </div>
   <div id="askAiAnswer" class="ask-ai-answer"></div>
 </div>
@@ -1055,12 +1054,11 @@ async function fetchData() {
   }
 }
 
-// --- Ask AI: client-side only, using the *visitor's own* Anthropic API key
-// (never this site's) — stored solely in their browser's localStorage, sent
-// only directly to Anthropic's API. Uses the documented direct-browser-access
-// header rather than a server proxy, since this is a static (GitHub Pages)
-// site with no backend to hold a shared key safely.
-const ASK_AI_KEY_STORAGE = "abs_dashboard_anthropic_key";
+// --- Ask AI: sends the question + a compact data context to a Cloudflare
+// Worker backend (cf-worker/) that holds the real Anthropic API key
+// server-side — visitors never see or need their own key. The Worker also
+// enforces a daily request cap as a cost safety rail against traffic spikes.
+const ASK_AI_WORKER_URL = "https://abs-ask-ai.ssonaali350.workers.dev";
 
 function buildAskAiContext() {
   const newsLines = records.slice()
@@ -1080,48 +1078,21 @@ async function handleAskAi() {
   const question = input.value.trim();
   if (!question) return;
 
-  const key = localStorage.getItem(ASK_AI_KEY_STORAGE);
-  if (!key) {
-    answerEl.className = "ask-ai-answer error";
-    answerEl.textContent = 'No API key set — click "🔑 API key" to add your own Anthropic API key (stored only in your browser, sent only to Anthropic’s API).';
-    return;
-  }
-
   answerEl.className = "ask-ai-answer loading";
   answerEl.textContent = "Thinking…";
 
   const { newsLines, holdingsLines } = buildAskAiContext();
-  const prompt = `You answer questions about an ABS credit news dashboard's own data. Use ONLY the data below; if the answer isn't in it, say so plainly.
-
-NEWS ITEMS (date | sector | action_type | relevance 1-5 | issuer | title), most recent first, up to 400:
-${newsLines}
-
-SAMPLE PORTFOLIO HOLDINGS (illustrative demo data, not real fund positions):
-${holdingsLines}
-
-Question: ${question}
-
-Answer concisely, in a few sentences.`;
 
   try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const resp = await fetch(ASK_AI_WORKER_URL, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 500,
-        messages: [{ role: "user", content: prompt }],
-      }),
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question, newsLines, holdingsLines }),
     });
     const data = await resp.json();
-    if (!resp.ok) throw new Error((data.error && data.error.message) || `HTTP ${resp.status}`);
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
     answerEl.className = "ask-ai-answer";
-    answerEl.textContent = data.content[0].text;
+    answerEl.textContent = data.answer;
   } catch (e) {
     answerEl.className = "ask-ai-answer error";
     answerEl.textContent = "Error: " + e.message;
@@ -1161,18 +1132,6 @@ document.getElementById("refreshBtn").addEventListener("click", fetchData);
 document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
 document.getElementById("askAiButton").addEventListener("click", handleAskAi);
 document.getElementById("askAiInput").addEventListener("keydown", (e) => { if (e.key === "Enter") handleAskAi(); });
-document.getElementById("askAiKeyButton").addEventListener("click", () => {
-  const hasKey = !!localStorage.getItem(ASK_AI_KEY_STORAGE);
-  const value = prompt(
-    "Enter your Anthropic API key (stored only in this browser's local storage; sent only directly to Anthropic's API, never to this site). Leave blank and submit to clear it.",
-    hasKey ? "••••••••" : ""
-  );
-  if (value === null) return; // cancelled
-  const trimmed = value.trim();
-  if (trimmed === "" ) { localStorage.removeItem(ASK_AI_KEY_STORAGE); return; }
-  if (trimmed === "••••••••") return; // unchanged placeholder, do nothing
-  localStorage.setItem(ASK_AI_KEY_STORAGE, trimmed);
-});
 document.getElementById("fileFallback").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
