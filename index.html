@@ -654,6 +654,16 @@ function applyFilters(list) {
 // Collapsed row (Date | Sector | Issuer/Deal | Action | Relevance) + a
 // hidden detail row (title, summary, tags, source) toggled on click —
 // keeps the default view scannable, full detail one click away.
+// When Claude can't attribute a single issuer (common for sector-wide
+// commentary or "N deals at once" rating actions), fall back to a short
+// title snippet instead of a bare dash, so the collapsed row still says
+// something at a glance.
+function issuerCell(r) {
+  if (r.issuer) return r.issuer;
+  const snippet = r.title.length > 55 ? r.title.slice(0, 52) + "…" : r.title;
+  return `<span style="color:var(--text-secondary); font-style:italic;">${snippet}</span>`;
+}
+
 function rowHtml(r) {
   const borderColor = urgencyColor(classifyUrgency(r));
   const rowClass = ["row-main", r.relevance_score <= 2 ? "muted" : "", r.relevance_score >= 4 ? "pop" : ""].filter(Boolean).join(" ");
@@ -661,7 +671,7 @@ function rowHtml(r) {
     <tr class="${rowClass}" style="border-left:3px solid ${borderColor}" onclick="const d=this.nextElementSibling; d.style.display = d.style.display==='table-row' ? 'none' : 'table-row';">
       <td>${formatDate(r.published || r.ingested_at)}</td>
       <td>${sectorBadge(r.sector)}</td>
-      <td>${r.issuer || "—"}</td>
+      <td>${issuerCell(r)}</td>
       <td>${r.action_type}</td>
       <td>${relBar(r.relevance_score)}</td>
     </tr>
