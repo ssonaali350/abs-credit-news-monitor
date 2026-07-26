@@ -25,13 +25,25 @@ from urllib.request import urlopen, Request
 BASE_DIR = Path(__file__).parent
 OUTPUT_FILE = BASE_DIR / "market_ticker.json"
 
-# (FRED series ID, display label, unit)
+# (FRED series ID, display label, unit) — shown in the top ticker bar
 SERIES = [
     ("SOFR", "SOFR", "%"),
     ("BAMLC0A0CM", "IG Corporate OAS", "%"),
     ("BAMLH0A0HYM2", "HY Corporate OAS", "%"),
     ("DGS10", "10Y Treasury", "%"),
     ("DGS2", "2Y Treasury", "%"),
+]
+
+# Treasury yield curve points (FRED series ID, tenor label) — plotted as a
+# line chart so the curve shape (normal/flat/inverted) is visible at a
+# glance. DGS2 and DGS10 overlap with SERIES above but are re-fetched here
+# for simplicity; FRED's free endpoint has no rate limit that matters at
+# this volume (4 requests/day).
+YIELD_CURVE_SERIES = [
+    ("DGS2", "2Y"),
+    ("DGS5", "5Y"),
+    ("DGS10", "10Y"),
+    ("DGS30", "30Y"),
 ]
 
 # Explicitly not available for free — shown in the UI so the gap is
@@ -87,9 +99,22 @@ def main():
             "change": change,
         })
 
+    yield_curve = []
+    for series_id, tenor in YIELD_CURVE_SERIES:
+        try:
+            point = fetch_series(series_id)
+        except Exception as e:
+            print(f"[warn] failed to fetch {series_id}: {e}", file=sys.stderr)
+            continue
+        if not point:
+            print(f"[warn] no data returned for {series_id}", file=sys.stderr)
+            continue
+        yield_curve.append({"tenor": tenor, "value": point["value"], "as_of": point["date"]})
+
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "items": items,
+        "yield_curve": yield_curve,
         "unavailable": UNAVAILABLE,
     }
     OUTPUT_FILE.write_text(json.dumps(output, indent=2))
@@ -97,6 +122,7 @@ def main():
     for it in items:
         arrow = "" if it["change"] is None else ("▲" if it["change"] > 0 else "▼" if it["change"] < 0 else "·")
         print(f"  {it['label']}: {it['value']}{it['unit']} {arrow} ({it['as_of']})")
+    print("Yield curve:", ", ".join(f"{p['tenor']}={p['value']}%" for p in yield_curve))
 
 
 if __name__ == "__main__":

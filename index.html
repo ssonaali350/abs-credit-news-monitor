@@ -349,6 +349,8 @@
   <div class="subtitle" id="lastUpdated">Loading…</div>
 </header>
 
+<div id="yieldCurveRow" class="overview-row"></div>
+
 <div id="execSummary"></div>
 
 <div id="askAiPanel" class="ask-ai-panel">
@@ -708,6 +710,50 @@ function tickerBarHtml() {
   return `${items}<span class="ticker-asof">as of ${asOf} (FRED)</span><span class="ticker-unavailable" title="${unavailableTitle}">ⓘ CDX.NA.IG/HY, CLO spreads — no free source</span>`;
 }
 
+// --- Treasury yield curve (real data, no disclaimer) ---------------------
+function yieldCurveHtml() {
+  if (!marketTicker || !marketTicker.yield_curve || !marketTicker.yield_curve.length) return "";
+  const points = marketTicker.yield_curve;
+  const tenorYears = { "2Y": 2, "5Y": 5, "10Y": 10, "30Y": 30 };
+  const maxYear = 32;
+  const values = points.map(p => p.value);
+  const minV = Math.min(...values), maxV = Math.max(...values);
+  const padV = Math.max(0.15, (maxV - minV) * 0.3);
+  const yLo = minV - padV, yHi = maxV + padV;
+  const w = 460, h = 130, leftPad = 24, rightPad = 20, topPad = 22, bottomPad = 26;
+  const plotW = w - leftPad - rightPad, plotH = h - topPad - bottomPad;
+  const xScale = (yr) => leftPad + (yr / maxYear) * plotW;
+  const yScale = (v) => topPad + (1 - (v - yLo) / (yHi - yLo)) * plotH;
+
+  const coords = points.map(p => ({ x: xScale(tenorYears[p.tenor]), y: yScale(p.value), ...p }));
+  const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
+  const dots = coords.map(c => `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.5" style="fill:var(--series-auto)"><title>${c.tenor}: ${c.value}%</title></circle>`).join("");
+  const labels = coords.map(c =>
+    `<text x="${c.x.toFixed(1)}" y="${h - bottomPad + 16}" text-anchor="middle" class="chart-label">${c.tenor}</text>` +
+    `<text x="${c.x.toFixed(1)}" y="${c.y - 8}" text-anchor="middle" class="chart-total">${c.value.toFixed(2)}%</text>`
+  ).join("");
+
+  const y2 = points.find(p => p.tenor === "2Y").value;
+  const y10 = points.find(p => p.tenor === "10Y").value;
+  const spread = y10 - y2;
+  let shape, shapeColor;
+  if (spread > 0.15) { shape = "Normal (upward-sloping)"; shapeColor = "var(--status-good)"; }
+  else if (spread < -0.05) { shape = "Inverted"; shapeColor = "var(--status-critical)"; }
+  else { shape = "Flat"; shapeColor = "var(--status-warning)"; }
+
+  return `
+    <div class="trend-card">
+      <div class="panel-header">Treasury Yield Curve <span class="gauge-window">(as of ${points[0].as_of})</span></div>
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="150" preserveAspectRatio="xMinYMid meet">
+        <path d="${linePath}" style="fill:none;stroke:var(--series-auto);stroke-width:2"/>
+        ${dots}
+        ${labels}
+      </svg>
+      <div class="chart-note" style="color:${shapeColor}; font-weight:600;">${shape} curve (10Y − 2Y = ${spread >= 0 ? "+" : ""}${(spread * 100).toFixed(0)}bps)</div>
+      <div class="chart-caveat">Relevant to floating-rate ABS/CLO economics — a flat or inverted curve compresses the CLO arbitrage (asset yield vs. cost of funds).</div>
+    </div>`;
+}
+
 // --- SAMPLE PORTFOLIO: KPI cards + surveillance-flag tiles + Holdings table
 function flagColor(flag) {
   return flag === "RED" ? "var(--status-critical)" : flag === "YELLOW" ? "var(--status-warning)" : "var(--status-good)";
@@ -799,6 +845,7 @@ function renderOverview() {
   document.getElementById("sectorStrip").innerHTML = sectorStripHtml();
   document.getElementById("portfolioPanel").innerHTML = portfolioPanelHtml();
   document.getElementById("tickerBar").innerHTML = tickerBarHtml();
+  document.getElementById("yieldCurveRow").innerHTML = yieldCurveHtml();
 }
 
 function renderStats(scoped) {
