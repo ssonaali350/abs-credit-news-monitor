@@ -163,37 +163,124 @@ def fetch_feed(name: str, url: str, limit: int):
     return entries
 
 
-SUMMARY_PROMPT = """You write a single-sentence executive summary for an ABS \
-(asset-backed securities) portfolio surveillance team, covering the batch of \
-recent structured news items below (already filtered to the last {days} days \
-by publish date, matching the dashboard's default view — do not describe \
-anything as more recent or older than that). Prioritize the highest-relevance \
-items. Exactly {match_count} of these items match the sample portfolio-watch \
-list — only mention a portfolio-watch match if this number is greater than 0, \
-and never name a deal as a portfolio match unless its own line below says \
-matches=[...] with a non-empty list. Return ONLY the one sentence, no \
-preamble, no quotes.
+# Rolling window for the "is today quiet or busy" volume comparison.
+VOLUME_BASELINE_DAYS = 30
+
+NARRATIVE_PROMPT = """You write ONE outcome-oriented sentence for an ABS \
+(asset-backed securities) portfolio surveillance team, covering today's batch \
+of {count} new items below (already filtered to the last {days} days by \
+publish date, matching the dashboard's default view). This sentence runs \
+AFTER an "Action Needed" line and a volume-context line that already state \
+explicitly whether there are downgrades or sample-portfolio matches today — \
+do not repeat those facts verbatim, but you may reference them briefly if \
+central to the day's story. Focus on OUTCOMES and WHAT IT MEANS, not a recap \
+of what was filed — e.g. "no deterioration signals across CLO coverage" or \
+"flagged rising delinquencies in subprime auto", not "several CLO ratings \
+were published". Items below are already sorted by priority (downgrades and \
+sample-portfolio matches first, then by relevance) — reflect that ordering \
+in what you choose to lead with. Return ONLY the one sentence, no preamble, \
+no quotes.
 
 Items (relevance/sector/action/portfolio-matches/title):
 {items}
 """
 
 
-def generate_daily_summary(client: Anthropic, records: list) -> str:
-    match_count = sum(1 for r in records if r.get("portfolio_matches"))
+def compute_volume_baseline(days: int = VOLUME_BASELINE_DAYS):
+    """Average items/day over the trailing `days`, based on published dates
+    across the whole dataset (excluding today itself). Divides by the full
+    window length (not just days that had any items), so quiet days pull the
+    baseline down rather than being ignored — otherwise a handful of busy
+    days would make every day look "quiet by comparison"."""
+    if not OUTPUT_FILE.exists():
+        return None
+    now = datetime.now(timezone.utc)
+    daily_counts = {}
+    for line in OUTPUT_FILE.read_text().splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        dt = parse_published(r.get("published")) or parse_published(r.get("ingested_at"))
+        if not dt:
+            continue
+        age_days = (now - dt).days
+        if 0 < age_days <= days:  # exclude "today" (age 0) from its own baseline
+            key = dt.date()
+            daily_counts[key] = daily_counts.get(key, 0) + 1
+    if not daily_counts:
+        return None
+    return sum(daily_counts.values()) / days
+
+
+def build_action_line(records: list):
+    """Deterministic, not LLM-generated — a PM needs to trust this line is
+    always accurate, so severity/downgrade/portfolio-match detection is
+    plain Python, not left to model discretion."""
+    downgrades = [r for r in records if "downgrade" in (r.get("action_type") or "").lower()]
+    portfolio_hits = [r for r in records if r.get("portfolio_matches")]
+    if not downgrades and not portfolio_hits:
+        return "🟢 No action needed today.", False
+
+    parts = []
+    if downgrades:
+        n = len(downgrades)
+        parts.append(f"{n} downgrade{'s' if n != 1 else ''} require{'s' if n == 1 else ''} review")
+    if portfolio_hits:
+        names = sorted({m for r in portfolio_hits for m in (r.get("portfolio_matches") or [])})
+        n = len(portfolio_hits)
+        deal_plural = "s" if len(names) != 1 else ""
+        parts.append(
+            f"{n} item{'s' if n != 1 else ''} touch{'es' if n == 1 else ''} your sample-portfolio "
+            f"deal{deal_plural} {', '.join(names)} — demo holdings, not real positions"
+        )
+    return "🔴 Action Needed: " + "; ".join(parts) + ".", True
+
+
+def build_volume_line(today_count: int, baseline):
+    if baseline is None or baseline == 0:
+        return f"{today_count} item{'s' if today_count != 1 else ''} today — no {VOLUME_BASELINE_DAYS}-day baseline yet."
+    ratio = today_count / baseline
+    if ratio >= 1.5:
+        tone = "busier than usual"
+    elif ratio <= 0.5:
+        tone = "quieter than usual"
+    else:
+        tone = "a typical day"
+    return (f"{today_count} item{'s' if today_count != 1 else ''} today vs. {baseline:.1f}/day "
+            f"{VOLUME_BASELINE_DAYS}-day average — {tone}.")
+
+
+def generate_daily_summary(client: Anthropic, records: list) -> dict:
+    action_line, action_needed = build_action_line(records)
+    baseline = compute_volume_baseline()
+    volume_line = build_volume_line(len(records), baseline)
+
+    # Downgrades and portfolio-sample matches always lead, even if they're a
+    # small fraction of today's volume — the narrative prompt is told this
+    # ordering is deliberate and should shape what it leads with.
+    priority_sorted = sorted(
+        records,
+        key=lambda r: (
+            0 if "downgrade" in (r.get("action_type") or "").lower() else 1,
+            0 if r.get("portfolio_matches") else 1,
+            -r["relevance_score"],
+        ),
+    )
     lines = [
         f"- {r['relevance_score']}/5 | {r['sector']} | {r['action_type']} | "
         f"matches={r.get('portfolio_matches') or []} | {r['title']}"
-        for r in sorted(records, key=lambda r: -r["relevance_score"])[:40]
+        for r in priority_sorted[:40]
     ]
-    prompt = SUMMARY_PROMPT.format(
-        days=SUMMARY_RECENCY_DAYS, match_count=match_count, items="\n".join(lines),
-    )
-    resp = client.messages.create(
-        model=MODEL, max_tokens=150,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return resp.content[0].text.strip()
+    prompt = NARRATIVE_PROMPT.format(count=len(records), days=SUMMARY_RECENCY_DAYS, items="\n".join(lines))
+    resp = client.messages.create(model=MODEL, max_tokens=150, messages=[{"role": "user", "content": prompt}])
+    narrative = resp.content[0].text.strip()
+
+    return {
+        "action_needed": action_needed,
+        "action_line": action_line,
+        "volume_line": volume_line,
+        "narrative": narrative,
+    }
 
 
 def main():
@@ -297,13 +384,13 @@ def main():
         recent_new = [r for r in new_records if is_recent_record(r, SUMMARY_RECENCY_DAYS)]
         if recent_new:
             try:
-                summary = generate_daily_summary(client, recent_new)
+                parts = generate_daily_summary(client, recent_new)
                 with SUMMARY_FILE.open("a") as f:
                     f.write(json.dumps({
                         "date": datetime.now(timezone.utc).date().isoformat(),
-                        "summary": summary,
                         "item_count": len(recent_new),
                         "generated_at": datetime.now(timezone.utc).isoformat(),
+                        **parts,
                     }) + "\n")
             except Exception as e:
                 print(f"[warn] failed to generate daily summary: {e}", file=sys.stderr)

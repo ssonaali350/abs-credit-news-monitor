@@ -110,7 +110,9 @@
   .exec-icon { font-size: 28px; line-height: 1; }
   .exec-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
   .exec-meta { font-weight: 400; text-transform: none; letter-spacing: normal; margin-left: 8px; }
-  .exec-text { font-size: 17px; line-height: 1.45; margin-top: 4px; }
+  .exec-action-line { font-size: 16px; font-weight: 700; line-height: 1.4; margin-top: 6px; }
+  .exec-volume-line { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+  .exec-text { font-size: 14px; line-height: 1.45; margin-top: 8px; color: var(--text-secondary); }
 
   /* --- Market overview row: gauge + trend chart --- */
   .overview-row { display: flex; gap: 12px; padding: 14px 28px 0; flex-wrap: wrap; align-items: stretch; }
@@ -551,16 +553,30 @@ function renderExecSummary() {
   const el = document.getElementById("execSummary");
   if (!summaries.length) { el.innerHTML = ""; return; }
   const latest = summaries[summaries.length - 1];
-  const toneColor = currentGauge.tone === "red" ? "var(--status-critical)"
-    : currentGauge.tone === "green" ? "var(--status-good)"
-    : currentGauge.tone === "yellow" ? "var(--status-warning)"
-    : "var(--series-auto)";
+
+  // Older entries (before this was restructured) only have a flat
+  // `summary` string — fall back to the original single-line rendering.
+  if (!latest.action_line) {
+    el.innerHTML = `
+      <div class="exec-summary" style="border-left-color:var(--series-auto)">
+        <div class="exec-icon">🗞️</div>
+        <div class="exec-body">
+          <div class="exec-title">Today's Read <span class="exec-meta">${latest.date} · ${latest.item_count} item${latest.item_count === 1 ? "" : "s"}</span></div>
+          <div class="exec-text">${latest.summary}</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const toneColor = latest.action_needed ? "var(--status-critical)" : "var(--status-good)";
   el.innerHTML = `
     <div class="exec-summary" style="border-left-color:${toneColor}">
-      <div class="exec-icon">🗞️</div>
+      <div class="exec-icon">${latest.action_needed ? "🚨" : "🗞️"}</div>
       <div class="exec-body">
-        <div class="exec-title">Today's Read <span class="exec-meta">${latest.date} · ${latest.item_count} item${latest.item_count === 1 ? "" : "s"}</span></div>
-        <div class="exec-text">${latest.summary}</div>
+        <div class="exec-title">Today's Read <span class="exec-meta">${latest.date}</span></div>
+        <div class="exec-action-line" style="color:${toneColor}">${latest.action_line}</div>
+        <div class="exec-volume-line">${latest.volume_line}</div>
+        <div class="exec-text">${latest.narrative}</div>
       </div>
     </div>`;
 }
