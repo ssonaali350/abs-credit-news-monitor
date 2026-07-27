@@ -13,6 +13,20 @@ on:
 permissions:
   contents: write   # needed so this workflow can commit updated data files back
 
+# Fixes the root cause, not another symptom: overlapping runs (GitHub's own
+# schedule, the Cloudflare Cron Trigger fallback, and manual dispatches can
+# all land close together) were racing to commit/push at the same time.
+# The pull-rebase-retry loop below only handles a *clean* divergence; a
+# concurrent run editing the same lines produces a real merge conflict it
+# can't resolve, which is what actually happened during testing. Queuing
+# overlapping runs instead of letting them race removes the conflict
+# entirely rather than getting better at recovering from it.
+# cancel-in-progress: false because a run may be mid-way through paid
+# Claude API calls - canceling it would waste that spend for nothing.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
