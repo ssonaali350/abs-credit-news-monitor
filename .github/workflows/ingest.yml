@@ -32,6 +32,8 @@ jobs:
         run: python3 ingest.py --limit 50
 
       - name: Fetch live market data (SOFR, OAS spreads, Treasury yields)
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python3 fetch_market_data.py
 
       - name: Commit updated data files
