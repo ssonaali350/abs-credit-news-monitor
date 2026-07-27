@@ -14,6 +14,8 @@
 const DAILY_LIMIT = 100;
 const ALLOWED_ORIGIN = "https://ssonaali350.github.io";
 const MODEL = "claude-haiku-4-5-20251001";
+const GITHUB_REPO = "ssonaali350/abs-credit-news-monitor";
+const GITHUB_WORKFLOW = "ingest.yml";
 
 function corsHeaders() {
   return {
@@ -34,6 +36,34 @@ async function getTodayCount(env) {
   const key = `count:${new Date().toISOString().slice(0, 10)}`;
   const raw = await env.RATE_LIMIT_KV.get(key);
   return { key, count: raw ? parseInt(raw, 10) : 0 };
+}
+
+// Reliable external trigger for the daily news-ingest workflow. GitHub's own
+// `schedule` event missed two days running despite correct workflow config
+// (active, correct branch, valid cron, no account/permission issue) — a
+// known, documented GitHub limitation (scheduled workflows are explicitly
+// best-effort and get deprioritized under platform load), not something
+// further YAML changes can fix. Cloudflare Cron Triggers are a much more
+// reliable primitive, so this Worker just fires the same workflow via the
+// GitHub REST API on schedule instead of waiting on GitHub's own scheduler.
+async function triggerGithubIngest(env) {
+  const resp = await fetch(
+    `https://api.github.com/repos/${GITHUB_REPO}/actions/workflows/${GITHUB_WORKFLOW}/dispatches`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.GITHUB_PAT}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "abs-ask-ai-cron-trigger",
+      },
+      body: JSON.stringify({ ref: "main" }),
+    }
+  );
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`GitHub workflow_dispatch failed: ${resp.status} ${text}`);
+  }
 }
 
 export default {
@@ -100,5 +130,11 @@ Answer concisely, in a few sentences.`;
     } catch (e) {
       return jsonResponse({ error: "Request to Anthropic failed: " + e.message }, 502);
     }
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      triggerGithubIngest(env).catch((err) => console.error(err.message))
+    );
   },
 };

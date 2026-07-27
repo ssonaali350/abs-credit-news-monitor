@@ -6,3 +6,13 @@ compatibility_date = "2024-11-01"
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
 id = "c2b5a71ead22428cb1f409a8f764a0d7"
+
+# Reliable external trigger for the GitHub Actions daily ingest workflow —
+# GitHub's own `schedule` trigger missed twice in a row despite correct
+# config (best-effort/deprioritized under load, a documented GitHub
+# limitation, not something fixable from the workflow YAML side). Cloudflare
+# Cron Triggers are a much more reliable scheduling primitive; this Worker's
+# scheduled() handler just fires the workflow_dispatch API on the same
+# 12:07 UTC target time.
+[triggers]
+crons = ["7 12 * * *"]
