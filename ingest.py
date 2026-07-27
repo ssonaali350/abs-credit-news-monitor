@@ -178,8 +178,29 @@ of what was filed — e.g. "no deterioration signals across CLO coverage" or \
 "flagged rising delinquencies in subprime auto", not "several CLO ratings \
 were published". Items below are already sorted by priority (downgrades and \
 sample-portfolio matches first, then by relevance) — reflect that ordering \
-in what you choose to lead with. Return ONLY the one sentence, no preamble, \
-no quotes.
+in what you choose to lead with.
+
+Two hard rules:
+1. NEVER shorten an issuer/trust name to a fragment that reads as an \
+unrelated company. Many entities in this feed are legacy repackaging trusts \
+named after a bond they hold (e.g. "STRATS Trust for Dominion Resources, \
+Inc. Securities, Series 2005-6" or "STRATS SM Trust for Wal-Mart Stores, \
+Inc. Securities, Series 2005-4") — these are distinct SEC-registered filers, \
+NOT the named corporation itself. Referring to one as just "Dominion" or \
+"Walmart" misleadingly implies the parent company itself is involved. Use \
+the issuer name as given, or a clearly-trust-scoped shorthand (e.g. "the \
+Dominion Resources repackaging trust"), never a bare company name for an \
+entity that isn't literally that company.
+2. On a quiet/routine day (no downgrades, no portfolio matches, nothing \
+above relevance 3), do NOT write vague reassurance like "no triggers \
+requiring immediate surveillance escalation" or "nothing of note." Instead, \
+name the actual filing type(s) present and state plainly what was absent — \
+e.g. "Routine periodic 8-K disclosures from three legacy securitization \
+trusts; no covenant breaches, rating changes, or performance flags noted." \
+A PM reading this should feel someone specifically checked, not that the \
+sentence is padding.
+
+Return ONLY the one sentence, no preamble, no quotes.
 
 Items (relevance/sector/action/portfolio-matches/title):
 {items}
@@ -307,8 +328,8 @@ def build_volume_line(today_count: int, baseline_info: dict, is_backfill_like: b
         if is_backfill_like else ""
     )
     if baseline_info["insufficient"] or baseline_info["avg"] is None:
-        return (f"{today_count} item{plural} today — {VOLUME_BASELINE_DAYS}-day baseline still building since the "
-                f"July 25 feed expansion (comparison not yet meaningful){backfill_note}.")
+        return (f"{today_count} item{plural} today. Historical comparison not yet available — still building a "
+                f"baseline after the July 25 coverage expansion.{backfill_note}")
     avg = baseline_info["avg"]
     if avg == 0:
         return f"{today_count} item{plural} today — no comparable baseline yet{backfill_note}."
@@ -323,9 +344,24 @@ def build_volume_line(today_count: int, baseline_info: dict, is_backfill_like: b
             f"({baseline_info['window_days']}-day window since the feed expansion) — {tone}{backfill_note}.")
 
 
+# A day is "quiet" when it needs no visual weight at all: no downgrades, no
+# portfolio-sample matches, and nothing even moderately relevant (>3) in the
+# batch. The frontend collapses the exec-summary banner to a single muted
+# line on these days, so the full-width colored treatment stays reserved
+# for days that actually warrant a PM's attention.
+QUIET_DAY_MAX_RELEVANCE = 3
+
+
+def build_is_quiet_day(records: list, action_needed: bool) -> bool:
+    if action_needed:
+        return False
+    return all(r["relevance_score"] <= QUIET_DAY_MAX_RELEVANCE for r in records)
+
+
 def generate_daily_summary(client: Anthropic, records: list) -> dict:
     action_line, action_needed = build_action_line(records)
     action_items = build_action_items(records)
+    is_quiet_day = build_is_quiet_day(records, action_needed)
     baseline_info = compute_volume_baseline()
     is_backfill_like = detect_backfill_artifact(records)
     volume_line = build_volume_line(len(records), baseline_info, is_backfill_like)
@@ -354,6 +390,7 @@ def generate_daily_summary(client: Anthropic, records: list) -> dict:
         "action_needed": action_needed,
         "action_line": action_line,
         "action_items": action_items,
+        "is_quiet_day": is_quiet_day,
         "volume_line": volume_line,
         "narrative": narrative,
     }
