@@ -1,9 +1,20 @@
-# Ask AI backend (Cloudflare Worker)
+# Ask AI backend + ingest cron fallback (Cloudflare Worker)
 
-Proxies the dashboard's "Ask AI" questions to Claude, holding the Anthropic
-API key as a Worker secret so it's never exposed to visitors' browsers.
-Includes a daily request cap (see `DAILY_LIMIT` in `src/index.js`) as a
-safety rail against unexpected traffic spikes/cost.
+Two jobs in one Worker:
+
+1. Proxies the dashboard's "Ask AI" questions to Claude, holding the Anthropic
+   API key as a Worker secret so it's never exposed to visitors' browsers.
+   Includes a daily request cap (see `DAILY_LIMIT` in `src/index.js`) as a
+   safety rail against unexpected traffic spikes/cost.
+2. A Cron Trigger (`[triggers] crons` in `wrangler.toml`) that fires GitHub's
+   `workflow_dispatch` API for the daily news-ingest workflow at 12:07 UTC.
+   This exists because GitHub Actions' own `schedule` event missed two days
+   running despite correct workflow config — a documented GitHub limitation
+   (scheduled workflows are best-effort and get deprioritized under
+   platform load), not something fixable from the workflow YAML alone.
+   Cloudflare Cron Triggers are a more reliable scheduling primitive, so
+   this Worker acts as an external, more dependable trigger for the same
+   job GitHub's scheduler was supposed to run.
 
 ## One-time setup
 
@@ -20,7 +31,11 @@ npx wrangler kv namespace create RATE_LIMIT_KV
 # 3. Store your Anthropic API key as a Worker secret (prompts for the value)
 npx wrangler secret put ANTHROPIC_API_KEY
 
-# 4. Deploy
+# 4. Store a GitHub fine-grained PAT (Actions: Read and write, scoped to
+#    just this repo) so the Worker can fire workflow_dispatch on schedule
+npx wrangler secret put GITHUB_PAT
+
+# 5. Deploy
 npx wrangler deploy
 ```
 
