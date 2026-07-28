@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-28T12:08:50.011713+00:00",
+  "generated_at": "2026-07-28T17:16:11.630613+00:00",
   "items": [
     {
       "series_id": "SOFR",
@@ -13,16 +13,16 @@
       "series_id": "BAMLC0A0CM",
       "label": "IG Corporate OAS",
       "unit": "%",
-      "value": 0.8,
-      "as_of": "2026-07-24",
+      "value": 0.81,
+      "as_of": "2026-07-27",
       "change": 0.01
     },
     {
       "series_id": "BAMLH0A0HYM2",
       "label": "HY Corporate OAS",
       "unit": "%",
-      "value": 2.79,
-      "as_of": "2026-07-24",
+      "value": 2.81,
+      "as_of": "2026-07-27",
       "change": 0.02
     },
     {
