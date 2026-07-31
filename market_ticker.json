@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-07-30T17:11:35.970200+00:00",
+  "generated_at": "2026-07-31T12:09:52.735855+00:00",
   "items": [
     {
       "series_id": "SOFR",
       "label": "SOFR",
       "unit": "%",
       "value": 3.65,
-      "as_of": "2026-07-29",
+      "as_of": "2026-07-30",
       "change": 0.0
     },
     {
@@ -29,39 +29,39 @@
       "series_id": "DGS10",
       "label": "10Y Treasury",
       "unit": "%",
-      "value": 4.61,
-      "as_of": "2026-07-28",
-      "change": -0.04
+      "value": 4.67,
+      "as_of": "2026-07-29",
+      "change": 0.06
     },
     {
       "series_id": "DGS2",
       "label": "2Y Treasury",
       "unit": "%",
-      "value": 4.26,
-      "as_of": "2026-07-28",
-      "change": -0.05
+      "value": 4.22,
+      "as_of": "2026-07-29",
+      "change": -0.04
     }
   ],
   "yield_curve": [
     {
       "tenor": "2Y",
-      "value": 4.26,
-      "as_of": "2026-07-28"
+      "value": 4.22,
+      "as_of": "2026-07-29"
     },
     {
       "tenor": "5Y",
-      "value": 4.35,
-      "as_of": "2026-07-28"
+      "value": 4.37,
+      "as_of": "2026-07-29"
     },
     {
       "tenor": "10Y",
-      "value": 4.61,
-      "as_of": "2026-07-28"
+      "value": 4.67,
+      "as_of": "2026-07-29"
     },
     {
       "tenor": "30Y",
-      "value": 5.09,
-      "as_of": "2026-07-28"
+      "value": 5.2,
+      "as_of": "2026-07-29"
     }
   ],
   "unavailable": [
