@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-14T12:09:21.720165+00:00",
+  "generated_at": "2026-08-14T15:09:18.998414+00:00",
   "items": [
     {
       "series_id": "SOFR",
@@ -14,7 +14,7 @@
       "label": "IG Corporate OAS",
       "unit": "%",
       "value": 0.79,
-      "as_of": "2026-08-12",
+      "as_of": "2026-08-13",
       "change": 0.0
     },
     {
@@ -22,8 +22,8 @@
       "label": "HY Corporate OAS",
       "unit": "%",
       "value": 2.71,
-      "as_of": "2026-08-12",
-      "change": -0.01
+      "as_of": "2026-08-13",
+      "change": 0.0
     },
     {
       "series_id": "DGS10",
