@@ -1,69 +1,7 @@
 {
-  "generated_at": "2026-10-20T16:49:14.257818+00:00",
-  "items": [
-    {
-      "series_id": "SOFR",
-      "label": "SOFR",
-      "unit": "%",
-      "value": 3.87,
-      "as_of": "2026-10-19",
-      "change": -0.01
-    },
-    {
-      "series_id": "BAMLC0A0CM",
-      "label": "IG Corporate OAS",
-      "unit": "%",
-      "value": 0.87,
-      "as_of": "2026-10-19",
-      "change": 0.02
-    },
-    {
-      "series_id": "BAMLH0A0HYM2",
-      "label": "HY Corporate OAS",
-      "unit": "%",
-      "value": 3.29,
-      "as_of": "2026-10-19",
-      "change": -0.02
-    },
-    {
-      "series_id": "DGS10",
-      "label": "10Y Treasury",
-      "unit": "%",
-      "value": 5.09,
-      "as_of": "2026-10-16",
-      "change": -0.01
-    },
-    {
-      "series_id": "DGS2",
-      "label": "2Y Treasury",
-      "unit": "%",
-      "value": 4.74,
-      "as_of": "2026-10-16",
-      "change": -0.03
-    }
-  ],
-  "yield_curve": [
-    {
-      "tenor": "2Y",
-      "value": 4.74,
-      "as_of": "2026-10-16"
-    },
-    {
-      "tenor": "5Y",
-      "value": 4.89,
-      "as_of": "2026-10-16"
-    },
-    {
-      "tenor": "10Y",
-      "value": 5.09,
-      "as_of": "2026-10-16"
-    },
-    {
-      "tenor": "30Y",
-      "value": 5.43,
-      "as_of": "2026-10-16"
-    }
-  ],
+  "generated_at": "2026-10-21T17:05:14.247851+00:00",
+  "items": [],
+  "yield_curve": [],
   "unavailable": [
     {
       "label": "CDX.NA.IG",
