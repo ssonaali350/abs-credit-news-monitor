@@ -1,44 +1,44 @@
 {
-  "generated_at": "2026-11-24T22:17:57.693409+00:00",
+  "generated_at": "2026-11-25T21:35:11.820609+00:00",
   "items": [
     {
       "series_id": "SOFR",
       "label": "SOFR",
       "unit": "%",
-      "value": 3.92,
-      "as_of": "2026-11-23",
-      "change": 0.0
+      "value": 3.94,
+      "as_of": "2026-11-24",
+      "change": 0.02
     },
     {
       "series_id": "BAMLC0A0CM",
       "label": "IG Corporate OAS",
       "unit": "%",
-      "value": 0.97,
-      "as_of": "2026-11-23",
-      "change": -0.01
+      "value": 0.98,
+      "as_of": "2026-11-24",
+      "change": 0.01
     },
     {
       "series_id": "BAMLH0A0HYM2",
       "label": "HY Corporate OAS",
       "unit": "%",
-      "value": 3.63,
-      "as_of": "2026-11-23",
-      "change": -0.13
+      "value": 3.72,
+      "as_of": "2026-11-24",
+      "change": 0.09
     },
     {
       "series_id": "DGS10",
       "label": "10Y Treasury",
       "unit": "%",
-      "value": 4.92,
-      "as_of": "2026-11-23",
-      "change": 0.0
+      "value": 4.91,
+      "as_of": "2026-11-24",
+      "change": -0.01
     },
     {
       "series_id": "DGS2",
       "label": "2Y Treasury",
       "unit": "%",
       "value": 4.63,
-      "as_of": "2026-11-23",
+      "as_of": "2026-11-24",
       "change": 0.0
     }
   ],
@@ -46,22 +46,22 @@
     {
       "tenor": "2Y",
       "value": 4.63,
-      "as_of": "2026-11-23"
+      "as_of": "2026-11-24"
     },
     {
       "tenor": "5Y",
-      "value": 4.74,
-      "as_of": "2026-11-23"
+      "value": 4.69,
+      "as_of": "2026-11-24"
     },
     {
       "tenor": "10Y",
-      "value": 4.92,
-      "as_of": "2026-11-23"
+      "value": 4.91,
+      "as_of": "2026-11-24"
     },
     {
       "tenor": "30Y",
-      "value": 5.29,
-      "as_of": "2026-11-23"
+      "value": 5.3,
+      "as_of": "2026-11-24"
     }
   ],
   "unavailable": [
