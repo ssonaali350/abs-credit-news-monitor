@@ -1,29 +1,29 @@
 {
-  "generated_at": "2026-11-26T21:23:58.617078+00:00",
+  "generated_at": "2026-11-27T21:03:31.263067+00:00",
   "items": [
     {
       "series_id": "SOFR",
       "label": "SOFR",
       "unit": "%",
-      "value": 3.94,
-      "as_of": "2026-11-24",
-      "change": 0.02
+      "value": 3.95,
+      "as_of": "2026-11-25",
+      "change": 0.01
     },
     {
       "series_id": "BAMLC0A0CM",
       "label": "IG Corporate OAS",
       "unit": "%",
-      "value": 0.98,
-      "as_of": "2026-11-24",
-      "change": 0.01
+      "value": 0.99,
+      "as_of": "2026-11-26",
+      "change": 0.0
     },
     {
       "series_id": "BAMLH0A0HYM2",
       "label": "HY Corporate OAS",
       "unit": "%",
-      "value": 3.72,
-      "as_of": "2026-11-24",
-      "change": 0.09
+      "value": 3.77,
+      "as_of": "2026-11-26",
+      "change": 0.0
     },
     {
       "series_id": "DGS10",
